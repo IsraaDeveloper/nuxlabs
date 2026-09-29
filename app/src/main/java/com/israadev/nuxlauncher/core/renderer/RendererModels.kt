@@ -1,0 +1,25 @@
+package com.israadev.nuxlauncher.core.renderer
+
+/**
+ * Metadata and launch configuration for a graphics renderer.
+ */
+data class NuxRendererInfo(
+    val id: String,
+    val displayName: String,
+    val badge: String,
+    val summary: String,
+    val compatibility: String,
+    val rendererId: String,
+    val libraryName: String,
+    val eglName: String? = null,
+    val envVariables: Map<String, String> = emptyMap(),
+    val requiresVulkan: Boolean = false,
+    val isAdrenoRecommended: Boolean = false,
+    val isMaliRecommended: Boolean = false,
+    val isPlugin: Boolean = false,
+    val pluginPackageName: String? = null,
+    val pluginNativePath: String? = null,
+    val dlopenLibs: List<String> = emptyList(),
+    val minMCVersion: String? = null,
+    val maxMCVersion: String? = null
+)

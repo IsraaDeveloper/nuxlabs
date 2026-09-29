@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>LiveKit Audio Bridge</title>
+    <script src="livekit-client.umd.min.js"></script>
+</head>
+<body>
+<div id="audio-container"></div>
+<script>
+    let currentRoom = null;
+    console.log("[LiveKitBridge] Script initialized. LivekitClient exists:", typeof LivekitClient !== 'undefined');
+
+    async function connectVoice(serverUrl, token) {
+        console.log("[LiveKitBridge] connectVoice called with serverUrl:", serverUrl);
+        try {
+            if (currentRoom) {
+                try {
+                    console.log("[LiveKitBridge] Disconnecting existing room...");
+                    await currentRoom.disconnect();
+                } catch(e) {
+                    console.warn("[LiveKitBridge] Error disconnecting previous room:", e);
+                }
+                currentRoom = null;
+            }
+
+            if (typeof LivekitClient === 'undefined') {
+                throw new Error("LivekitClient is undefined! LiveKit UMD script failed to load.");
+            }
+
+            const room = new LivekitClient.Room({
+                audioCaptureDefaults: {
+                    autoGainControl: true,
+                    echoCancellation: true,
+                    noiseSuppression: true
+                },
+                publishDefaults: {
+                    audioBitrate: 32000,
+                    dtx: true
+                }
+            });
+
+            room.on(LivekitClient.RoomEvent.Connected, () => {
+                console.log("[LiveKitBridge] RoomEvent.Connected!");
+                if (window.AndroidVoiceBridge && window.AndroidVoiceBridge.onConnected) {
+                    window.AndroidVoiceBridge.onConnected();
+                }
+            });
+
+            room.on(LivekitClient.RoomEvent.Disconnected, (reason) => {
+                console.log("[LiveKitBridge] RoomEvent.Disconnected! reason:", reason);
+                if (window.AndroidVoiceBridge && window.AndroidVoiceBridge.onDisconnected) {
+                    window.AndroidVoiceBridge.onDisconnected();
+                }
+            });
+
+            room.on(LivekitClient.RoomEvent.ActiveSpeakersChanged, (speakers) => {
+                if (window.AndroidVoiceBridge && window.AndroidVoiceBridge.onActiveSpeakersChanged) {
+                    const speakerIds = speakers.map(s => s.identity);
+                    window.AndroidVoiceBridge.onActiveSpeakersChanged(JSON.stringify(speakerIds));
+                }
+            });
+
+            room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                console.log("[LiveKitBridge] TrackSubscribed:", track.kind, "from participant:", participant.identity);
+                if (track.kind === 'audio') {
+                    const element = track.attach();
+                    element.autoplay = true;
+                    element.setAttribute('playsinline', '');
+                    const container = document.getElementById('audio-container') || document.body;
+                    container.appendChild(element);
+                    element.play().catch(e => {
+                        console.warn("[LiveKitBridge] Audio element play error:", e);
+                    });
+                }
+            });
+
+            room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+                console.log("[LiveKitBridge] TrackUnsubscribed:", track.kind, "from participant:", participant.identity);
+                track.detach().forEach(el => el.remove());
+            });
+
+            console.log("[LiveKitBridge] Connecting to LiveKit server...");
+            await room.connect(serverUrl, token);
+            console.log("[LiveKitBridge] Successfully connected to LiveKit! Identity:", room.localParticipant.identity);
+            currentRoom = room;
+
+            // Start audio playback
+            try {
+                await room.startAudio();
+                console.log("[LiveKitBridge] room.startAudio() executed successfully");
+            } catch (audioErr) {
+                console.warn("[LiveKitBridge] room.startAudio() warning:", audioErr);
+            }
+
+            // Also attach existing audio tracks if any
+            try {
+                room.remoteParticipants.forEach(p => {
+                    p.trackPublications.forEach(pub => {
+                        if (pub.track && pub.track.kind === 'audio') {
+                            console.log("[LiveKitBridge] Attaching existing remote audio track from:", p.identity);
+                            const element = pub.track.attach();
+                            element.autoplay = true;
+                            element.setAttribute('playsinline', '');
+                            const container = document.getElementById('audio-container') || document.body;
+                            container.appendChild(element);
+                            element.play().catch(e => console.warn("[LiveKitBridge] Play existing track error:", e));
+                        }
+                    });
+                });
+            } catch (attachErr) {
+                console.warn("[LiveKitBridge] Error attaching existing tracks:", attachErr);
+            }
+
+            // Enable local microphone
+            try {
+                console.log("[LiveKitBridge] Enabling local microphone...");
+                await room.localParticipant.setMicrophoneEnabled(true);
+                console.log("[LiveKitBridge] Local microphone enabled successfully!");
+            } catch (micErr) {
+                const errMsg = (micErr && (micErr.name + ": " + micErr.message)) || String(micErr);
+                console.warn("[LiveKitBridge] Standard mic failed (" + errMsg + "), retrying with basic constraints...");
+                try {
+                    await room.localParticipant.setMicrophoneEnabled(true, {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    });
+                    console.log("[LiveKitBridge] Local microphone enabled successfully with basic constraints!");
+                } catch (retryErr) {
+                    console.error("[LiveKitBridge] Failed to enable microphone on retry:", retryErr);
+                }
+            }
+
+        } catch (err) {
+            console.error("[LiveKitBridge] Fatal error in connectVoice:", err);
+            if (window.AndroidVoiceBridge && window.AndroidVoiceBridge.onError) {
+                window.AndroidVoiceBridge.onError(err.message || String(err));
+            }
+        }
+    }
+
+    async function setMute(muted) {
+        console.log("[LiveKitBridge] setMute:", muted);
+        if (currentRoom && currentRoom.localParticipant) {
+            try {
+                await currentRoom.localParticipant.setMicrophoneEnabled(!muted);
+                console.log("[LiveKitBridge] setMicrophoneEnabled success:", !muted);
+            } catch (e) {
+                const errMsg = (e && (e.name + ": " + e.message)) || String(e);
+                console.error("[LiveKitBridge] setMute error: " + errMsg);
+            }
+        }
+    }
+
+    async function disconnectVoice() {
+        console.log("[LiveKitBridge] disconnectVoice called");
+        if (currentRoom) {
+            try {
+                await currentRoom.disconnect();
+            } catch(e) {
+                console.warn("[LiveKitBridge] disconnect error:", e);
+            }
+            currentRoom = null;
+        }
+    }
+</script>
+</body>
+</html>

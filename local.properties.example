@@ -1,0 +1,5 @@
+## Location of the Android SDK
+sdk.dir=C\:\\Users\\YourUsername\\AppData\\Local\\Android\\Sdk
+
+## NUX Backend Server URL (Optional: Leave empty for standalone/offline build)
+# nux.server.url=https://your-custom-backend.com

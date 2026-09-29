@@ -1,0 +1,26 @@
+*.iml
+.gradle
+/local.properties
+local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+
+# Keystores & credentials
+*.keystore
+*.jks
+*.key
+google-services.json
+
+# Built outputs
+*.apk
+*.aab
+build/
+app/build/
+
+# Kotlin / OS specific
+.kotlin/
+Thumbs.db
