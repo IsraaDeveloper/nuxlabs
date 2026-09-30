@@ -152,19 +152,17 @@ object AuthService {
     }
 
     /**
-     * 2. Registrasi Akun Android Baru dengan Kode OTP
+     * 2. Registrasi Akun Android Baru (Langsung tanpa OTP)
      */
     suspend fun register(
         email: String,
         username: String,
-        password: String,
-        otpCode: String
+        password: String
     ): Result<RegisterResult> {
         val payload = JsonObject().apply {
             addProperty("email", email.trim().lowercase())
             addProperty("username", username.trim())
             addProperty("password", password)
-            addProperty("otpCode", otpCode.trim())
         }
 
         val result = postApi("/api/auth/android/register", payload.toString())

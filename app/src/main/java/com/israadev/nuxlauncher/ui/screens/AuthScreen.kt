@@ -566,26 +566,20 @@ fun AuthScreen(
                                     return@NuxButton
                                 }
 
-                                if (!OtpCooldownManager.canSendOtp()) {
-                                    val remText = OtpCooldownManager.formatRemainingTime()
-                                    errorMessage = "Harap tunggu $remText sebelum meminta kode OTP baru (Anti-Spam)."
-                                    return@NuxButton
-                                }
-
                                 isLoading = true
                                 errorMessage = ""
                                 coroutineScope.launch {
-                                    val res = AuthService.sendOtp(cleanEmail, cleanUser, "register")
+                                    val res = AuthService.register(cleanEmail, cleanUser, password)
                                     isLoading = false
                                     res.fold(
-                                        onSuccess = { _ ->
-                                            OtpCooldownManager.markOtpSent(context)
-                                            successMessage = "Kode OTP berhasil dikirim ke $cleanEmail! Jika belum muncul di Inbox, pastikan cek folder SPAM / JUNK."
-                                            otpCode = ""
-                                            mode = AuthMode.VERIFY_REGISTER_OTP
+                                        onSuccess = { regResult ->
+                                            pendingUser = regResult.user
+                                            successMessage = "Akun berhasil terdaftar! Silakan masukkan Key License kamu."
+                                            licenseKey = ""
+                                            mode = AuthMode.ACTIVATE_KEY
                                         },
                                         onFailure = { err ->
-                                            errorMessage = err.message ?: "Gagal mengirim OTP ke email."
+                                            errorMessage = err.message ?: "Gagal mendaftarkan akun."
                                         }
                                     )
                                 }
@@ -596,9 +590,9 @@ fun AuthScreen(
                             enabled = !isLoading
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(Icons.Default.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.PersonAdd, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                                 Text(
-                                    text = if (isLoading) "MENGIRIM KODE OTP..." else "LANJUT KE VERIFIKASI EMAIL",
+                                    text = if (isLoading) "MENDAFTARKAN AKUN..." else "DAFTAR AKUN BARU",
                                     fontWeight = FontWeight.Black,
                                     fontSize = 12.sp,
                                     color = Color.White
@@ -608,102 +602,11 @@ fun AuthScreen(
                     }
 
                     // ==========================================
-                    // 3. VERIFY REGISTER OTP
+                    // 3. VERIFY REGISTER OTP (DEPRECATED - BYPASS)
                     // ==========================================
                     AuthMode.VERIFY_REGISTER_OTP -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.clickable { mode = AuthMode.REGISTER }
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = NuxColors.DarkGray, modifier = Modifier.size(16.dp))
-                                Text("Ganti Email", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NuxColors.DarkGray)
-                            }
-
-                            Text(
-                                text = if (countdown > 0) "Kirim Ulang (${OtpCooldownManager.formatRemainingTime()})" else "Kirim Ulang OTP",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = if (countdown > 0) NuxColors.GrayNeutral else NuxColors.ForestGreen,
-                                modifier = Modifier.clickable(enabled = countdown == 0 && !isLoading) {
-                                    if (!OtpCooldownManager.canSendOtp()) {
-                                        errorMessage = "Harap tunggu ${OtpCooldownManager.formatRemainingTime()} lagi sebelum meminta kode OTP baru."
-                                        return@clickable
-                                    }
-                                    coroutineScope.launch {
-                                        isLoading = true
-                                        errorMessage = ""
-                                        val res = AuthService.sendOtp(email, username, "register")
-                                        isLoading = false
-                                        res.fold(
-                                            onSuccess = {
-                                                OtpCooldownManager.markOtpSent(context)
-                                                successMessage = "Kode OTP baru telah dikirim ke $email! Jika belum masuk, periksa folder SPAM / JUNK email Anda."
-                                            },
-                                            onFailure = { err ->
-                                                errorMessage = err.message ?: "Gagal mengirim ulang kode OTP."
-                                            }
-                                        )
-                                    }
-                                }
-                            )
-                        }
-
-                        Text(
-                            text = "Masukkan 6 Digit Kode OTP",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Black,
-                            color = NuxColors.DarkGray
-                        )
-
-                        // Segmented 6-Digit OTP Boxes
-                        OtpBoxes(
-                            otp = otpCode,
-                            onOtpChange = {
-                                if (it.length <= 6) otpCode = it.filter { c -> c.isDigit() }
-                                errorMessage = ""
-                            }
-                        )
-
-                        NuxButton(
-                            onClick = {
-                                if (otpCode.length != 6) {
-                                    errorMessage = "Kode verifikasi harus 6 digit angka."
-                                    return@NuxButton
-                                }
-                                isLoading = true
-                                errorMessage = ""
-                                coroutineScope.launch {
-                                    val res = AuthService.register(email, username, password, otpCode)
-                                    isLoading = false
-                                    res.fold(
-                                        onSuccess = { regResult ->
-                                            pendingUser = regResult.user
-                                            successMessage = "Akun berhasil terdaftar! Silakan aktifkan lisensi kamu."
-                                            licenseKey = ""
-                                            mode = AuthMode.ACTIVATE_KEY
-                                        },
-                                        onFailure = { err ->
-                                            errorMessage = err.message ?: "Kode verifikasi salah."
-                                        }
-                                    )
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            backgroundColor = NuxColors.ForestGreen,
-                            enabled = !isLoading
-                        ) {
-                            Text(
-                                text = if (isLoading) "MEMVERIFIKASI AKUN..." else "VERIFIKASI & BUAT AKUN RESMI",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
-                                color = Color.White
-                            )
+                        LaunchedEffect(Unit) {
+                            mode = AuthMode.REGISTER
                         }
                     }
 
