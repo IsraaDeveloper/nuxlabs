@@ -402,6 +402,27 @@ fun DashboardScreen() {
                                                                     }
                                                                 }
                                                             } else {
+                                                                val targetRuntime = selectedInstance?.let { JavaRuntimeManager.getRecommendedRuntime(it.mcVersion) } ?: "jre-21"
+                                                                if (!JavaRuntimeManager.isRuntimeInstalled(context, targetRuntime)) {
+                                                                    isDownloading = true
+                                                                    downloadTargetName = inst.name
+                                                                    downloadProgress = 0.5f
+                                                                    downloadMessage = "Menyiapkan OpenJDK (${JavaRuntimeManager.getRuntimeDisplayName(targetRuntime)})..."
+                                                                    scope.launch {
+                                                                        val extRes = JavaRuntimeManager.extractRuntime(context, targetRuntime) { msg ->
+                                                                            downloadMessage = msg
+                                                                        }
+                                                                        isDownloading = false
+                                                                        if (extRes.isSuccess) {
+                                                                            Toast.makeText(context, "Meluncurkan ${inst.name}...", Toast.LENGTH_SHORT).show()
+                                                                            GameLauncher.launch(context, inst, account)
+                                                                        } else {
+                                                                            Toast.makeText(context, "Gagal menyiapkan OpenJDK: ${extRes.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                                                                        }
+                                                                    }
+                                                                    return@clickable
+                                                                }
+
                                                                 val currentRendererInfo = NuxRendererRegistry.findRendererById(launcherSettings.selectedRenderer)
                                                                 val isSupported = NuxRendererRegistry.isSupportedForVersion(currentRendererInfo, inst.mcVersion)
                                                                 if (!isSupported) {

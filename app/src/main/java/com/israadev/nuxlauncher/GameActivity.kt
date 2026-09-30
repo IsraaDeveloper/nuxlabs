@@ -469,8 +469,50 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                 }
                 LoggerBridge.append("▷ [MCOptions] Minecraft options verified (res=${targetWidth}x${targetHeight}, autoOptimize=${activeSettings.autoOptimizeMinecraft})")
 
-                // Combined Library Path
-                var ldLibraryPath = if (lwjglNativesDirPath.isNotBlank()) "$lwjglNativesDirPath:$nativeLibDir" else nativeLibDir
+                // Verify & Ensure OpenJDK Runtime is fully installed
+                if (!com.israadev.nuxlauncher.core.runtime.JavaRuntimeManager.isRuntimeInstalled(this@GameActivity, runtimeName)) {
+                    liveLogs.add("[NUX Runtime] Mempersiapkan OpenJDK ($runtimeName)...")
+                    LoggerBridge.append("▷ [NUX Runtime] Runtime $runtimeName missing or incomplete, extracting from assets...")
+                    val extRes = kotlinx.coroutines.runBlocking {
+                        com.israadev.nuxlauncher.core.runtime.JavaRuntimeManager.extractRuntime(this@GameActivity, runtimeName) { msg ->
+                            liveLogs.add("[NUX Runtime] $msg")
+                            LoggerBridge.append("▷ [NUX Runtime] $msg")
+                        }
+                    }
+                    if (extRes.isFailure) {
+                        val errMsg = extRes.exceptionOrNull()?.message ?: "Extraction failed"
+                        liveLogs.add("[ERROR] Gagal mengekstrak OpenJDK $runtimeName: $errMsg")
+                        LoggerBridge.append("[ERROR] Gagal mengekstrak OpenJDK: $errMsg")
+                        throw Exception("Gagal menyiapkan OpenJDK ($runtimeName): $errMsg")
+                    }
+                    liveLogs.add("[NUX Runtime] OpenJDK ($runtimeName) siap digunakan!")
+                }
+
+                // Combined Library Path (Include Java runtime libraries for pojavexec dlopen)
+                val javaLibDir = File(runtimeHome, "lib")
+                val javaServerDir = File(runtimeHome, "lib/server")
+                val javaJliDir = File(runtimeHome, "lib/jli")
+
+                val javaLibPaths = listOf(javaLibDir, javaServerDir, javaJliDir)
+                    .filter { it.exists() }
+                    .map { it.absolutePath }
+
+                // Ensure native libraries have executable permissions
+                try {
+                    javaLibDir.walkTopDown().filter { it.extension == "so" }.forEach {
+                        it.setReadable(true, false)
+                        it.setExecutable(true, false)
+                    }
+                    File(runtimeHome, "bin").walkTopDown().forEach {
+                        it.setReadable(true, false)
+                        it.setExecutable(true, false)
+                    }
+                } catch (_: Throwable) {}
+
+                var ldLibraryPath = (listOf(
+                    if (lwjglNativesDirPath.isNotBlank()) lwjglNativesDirPath else null,
+                    nativeLibDir
+                ) + javaLibPaths).filterNotNull().joinToString(":")
 
                 // Setup Environment Variables
                 // Scan external renderer plugins in this process (:game)
@@ -635,17 +677,22 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                 } catch (_: Throwable) {}
 
                 // Pre-dlopen libraries
-                val javaLibDir = File(runtimeHome, "lib")
-                val jliLibDir = File(runtimeHome, "lib/jli")
-                val jvmLibDir = File(runtimeHome, "lib/server")
-
-                val jliFile = if (File(jliLibDir, "libjli.so").exists()) File(jliLibDir, "libjli.so") else File(javaLibDir, "libjli.so")
-                ZLBridge.dlopen(jliFile.absolutePath)
-                ZLBridge.dlopen(File(jvmLibDir, "libjvm.so").absolutePath)
-                ZLBridge.dlopen(File(javaLibDir, "libverify.so").absolutePath)
-                ZLBridge.dlopen(File(javaLibDir, "libjava.so").absolutePath)
-                ZLBridge.dlopen(File(javaLibDir, "libnet.so").absolutePath)
-                ZLBridge.dlopen(File(javaLibDir, "libnio.so").absolutePath)
+                val jliFile = if (File(javaJliDir, "libjli.so").exists()) File(javaJliDir, "libjli.so") else File(javaLibDir, "libjli.so")
+                if (jliFile.exists()) {
+                    ZLBridge.dlopen(jliFile.absolutePath)
+                }
+                val jvmFile = File(javaServerDir, "libjvm.so")
+                if (jvmFile.exists()) {
+                    ZLBridge.dlopen(jvmFile.absolutePath)
+                }
+                val verifyFile = File(javaLibDir, "libverify.so")
+                if (verifyFile.exists()) ZLBridge.dlopen(verifyFile.absolutePath)
+                val javaFile = File(javaLibDir, "libjava.so")
+                if (javaFile.exists()) ZLBridge.dlopen(javaFile.absolutePath)
+                val netFile = File(javaLibDir, "libnet.so")
+                if (netFile.exists()) ZLBridge.dlopen(netFile.absolutePath)
+                val nioFile = File(javaLibDir, "libnio.so")
+                if (nioFile.exists()) ZLBridge.dlopen(nioFile.absolutePath)
 
                 // Pre-dlopen internal renderer ONLY if NOT a plugin (prevents overriding plugin libraries with internal ones)
                 if (!targetRenderer.isPlugin) {

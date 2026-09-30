@@ -36,9 +36,33 @@ object JavaRuntimeManager {
 
     fun isRuntimeInstalled(context: Context, runtimeName: String): Boolean {
         val home = getRuntimeHome(context, runtimeName)
+        if (!home.exists() || !home.isDirectory) return false
+
         val javaBin = File(home, "bin/java")
-        val releaseFile = File(home, "release")
-        return home.exists() && (javaBin.exists() || releaseFile.exists())
+        if (!javaBin.exists()) return false
+        if (!javaBin.canExecute()) {
+            javaBin.setExecutable(true, false)
+        }
+
+        // Verify libjli.so exists
+        val jliFile = if (File(home, "lib/jli/libjli.so").exists()) {
+            File(home, "lib/jli/libjli.so")
+        } else {
+            File(home, "lib/libjli.so")
+        }
+        if (!jliFile.exists()) return false
+
+        // Verify libjvm.so exists
+        val jvmFile = File(home, "lib/server/libjvm.so")
+        val clientJvmFile = File(home, "lib/client/libjvm.so")
+        if (!jvmFile.exists() && !clientJvmFile.exists()) return false
+
+        // Verify modules (Java 9+) or rt.jar (Java 8)
+        val modulesFile = File(home, "lib/modules")
+        val rtJar = File(home, "lib/rt.jar")
+        if (!modulesFile.exists() && !rtJar.exists()) return false
+
+        return true
     }
 
     /**
@@ -92,7 +116,7 @@ object JavaRuntimeManager {
             val arch = getDeviceArch()
             val assetPath = "runtimes/$runtimeName"
 
-            // 1. Unpack universal.tar.xz
+            // 1. Unpack universal.tar.xz (libraries, modules, config)
             onProgress("Mengekstrak Java Runtime ($runtimeName universal)...")
             val universalName = "$assetPath/universal.tar.xz"
             try {
@@ -100,10 +124,11 @@ object JavaRuntimeManager {
                     unpackTarXz(input, destDir)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("JavaRuntimeManager", "Gagal unpack universal.tar.xz: ${e.message}", e)
+                throw e
             }
 
-            // 2. Unpack bin-$arch.tar.xz
+            // 2. Unpack bin-$arch.tar.xz (binaries, libjli, libjvm for arch)
             onProgress("Mengekstrak Java Runtime ($runtimeName bin-$arch)...")
             val binName = "$assetPath/bin-$arch.tar.xz"
             try {
@@ -111,18 +136,29 @@ object JavaRuntimeManager {
                     unpackTarXz(input, destDir)
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("JavaRuntimeManager", "Gagal unpack bin-$arch.tar.xz: ${e.message}", e)
+                throw e
             }
 
-            // 3. Mark executables
+            // 3. Mark executables & permissions across bin and lib folders
             val javaBin = File(destDir, "bin/java")
             if (javaBin.exists()) {
                 javaBin.setExecutable(true, false)
                 javaBin.setReadable(true, false)
             }
 
-            File(destDir, "bin").listFiles()?.forEach { bin ->
+            File(destDir, "bin").walkTopDown().forEach { bin ->
                 bin.setExecutable(true, false)
+                bin.setReadable(true, false)
+            }
+
+            File(destDir, "lib").walkTopDown().filter { it.extension == "so" }.forEach { so ->
+                so.setExecutable(true, false)
+                so.setReadable(true, false)
+            }
+
+            if (!isRuntimeInstalled(context, runtimeName)) {
+                return@withContext Result.failure(Exception("Verifikasi OpenJDK $runtimeName tidak lengkap setelah ekstraksi."))
             }
 
             Result.success(destDir)
@@ -133,24 +169,31 @@ object JavaRuntimeManager {
 
     private fun unpackTarXz(inputStream: InputStream, destDir: File) {
         TarArchiveInputStream(XZCompressorInputStream(inputStream)).use { tarIn ->
-            val buffer = ByteArray(8192)
+            val buffer = ByteArray(32768)
             var entry = tarIn.nextEntry
             while (entry != null) {
-                val targetFile = File(destDir, entry.name)
+                val cleanName = entry.name.removePrefix("./").removePrefix("/")
+                if (cleanName.isNotEmpty() && cleanName != ".") {
+                    val targetFile = File(destDir, cleanName)
 
-                if (entry.isSymbolicLink) {
-                    try {
-                        if (targetFile.exists()) targetFile.delete()
-                        Os.symlink(entry.linkName, targetFile.absolutePath)
-                    } catch (_: Throwable) {}
-                } else if (entry.isDirectory) {
-                    targetFile.mkdirs()
-                } else {
-                    targetFile.parentFile?.mkdirs()
-                    FileOutputStream(targetFile).use { out ->
-                        var len: Int
-                        while (tarIn.read(buffer).also { len = it } != -1) {
-                            out.write(buffer, 0, len)
+                    if (entry.isSymbolicLink) {
+                        try {
+                            if (targetFile.exists()) targetFile.delete()
+                            Os.symlink(entry.linkName, targetFile.absolutePath)
+                        } catch (_: Throwable) {}
+                    } else if (entry.isDirectory) {
+                        targetFile.mkdirs()
+                    } else {
+                        targetFile.parentFile?.mkdirs()
+                        FileOutputStream(targetFile).use { out ->
+                            var len: Int
+                            while (tarIn.read(buffer).also { len = it } != -1) {
+                                out.write(buffer, 0, len)
+                            }
+                        }
+                        if (cleanName.startsWith("bin/") || cleanName.endsWith(".so")) {
+                            targetFile.setExecutable(true, false)
+                            targetFile.setReadable(true, false)
                         }
                     }
                 }
