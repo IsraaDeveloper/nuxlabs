@@ -7,6 +7,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -94,7 +96,7 @@ fun NuxWardrobeDialog(
         updated
     }
 
-    // Pickers
+    // Pickers (Preview only - do not persist immediately)
     val skinPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
             scope.launch {
@@ -106,8 +108,8 @@ fun NuxWardrobeDialog(
                         val isSlim = SkinUtils.isSlimModel(file)
                         selectedModel = if (isSlim) "slim" else "classic"
                         playerSkin.loadAccount(account, customSkinFile = file, customCapeFile = currentCapeFile)
-                        persistAccountChanges(file, currentCapeFile, selectedModel)
-                        statusMessage = "Skin dimuat (${if (isSlim) "Slim" else "Klasik"})"
+                        playerSkin.loadSkin(file, selectedModel)
+                        statusMessage = "Skin dimuat di preview (${if (isSlim) "Slim" else "Klasik"}) — Klik Simpan untuk menerapkan"
                     },
                     onFailure = { err ->
                         statusMessage = "Gagal: ${err.message}"
@@ -129,8 +131,8 @@ fun NuxWardrobeDialog(
                         currentCapeFile = file
                         selectedPresetCapeId = null
                         playerSkin.loadAccount(account, customSkinFile = currentSkinFile, customCapeFile = file)
-                        persistAccountChanges(currentSkinFile, file, selectedModel)
-                        statusMessage = "Cape kustom berhasil dimuat!"
+                        playerSkin.loadCape(file)
+                        statusMessage = "Cape kustom dimuat di preview — Klik Simpan untuk menerapkan"
                     },
                     onFailure = { err ->
                         statusMessage = "Gagal: ${err.message}"
@@ -144,15 +146,13 @@ fun NuxWardrobeDialog(
 
     NuxDialog(
         onDismissRequest = onDismissRequest,
-        modifier = Modifier
-            .fillMaxWidth(0.85f)
-            .wrapContentHeight(),
-        fillMaxHeight = false
+        modifier = Modifier.fillMaxWidth(0.92f),
+        fillMaxHeight = true
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp)
+                .fillMaxSize()
+                .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             // Header
             Row(
@@ -166,7 +166,7 @@ fun NuxWardrobeDialog(
                             text = "WARDROBE & CUSTOM SKIN",
                             color = NuxColors.DarkGray,
                             fontWeight = FontWeight.Black,
-                            fontSize = 14.sp,
+                            fontSize = 13.5.sp,
                             letterSpacing = 1.sp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -178,7 +178,7 @@ fun NuxWardrobeDialog(
                             Text(
                                 text = account.username,
                                 color = NuxColors.ForestGreen,
-                                fontSize = 10.sp,
+                                fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -187,17 +187,16 @@ fun NuxWardrobeDialog(
                     Text(
                         text = "Kustomisasi tampilan skin dan jubah pemain Minecraft",
                         color = NuxColors.GrayNeutral,
-                        fontSize = 10.sp
+                        fontSize = 9.sp
                     )
                 }
 
                 Box(
                     modifier = Modifier
-                        .size(28.dp)
+                        .size(26.dp)
                         .background(NuxColors.SurfaceInput, CircleShape)
                         .border(1.dp, NuxColors.CardBorder, CircleShape)
                         .clickable {
-                            persistAccountChanges(currentSkinFile, currentCapeFile, selectedModel)
                             onDismissRequest()
                         },
                     contentAlignment = Alignment.Center
@@ -206,19 +205,19 @@ fun NuxWardrobeDialog(
                         imageVector = Icons.Outlined.Close,
                         contentDescription = "Tutup",
                         tint = NuxColors.GrayNeutral,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Main Content: Left 3D Viewport, Right Controls
+            // Main Content: Left 3D Viewport, Right Controls (Flexible Weight)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(280.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    .weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 // LEFT: 3D SKIN VIEWER (Interactive)
                 Box(
@@ -349,17 +348,24 @@ fun NuxWardrobeDialog(
                 // RIGHT: TABS & CONTROLS
                 Column(
                     modifier = Modifier
-                        .weight(1.35f)
+                        .weight(1.3f)
                         .fillMaxHeight(),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
+                    // Scrollable Controls Column
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         // Section Tabs: Skin vs Cape
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(NuxColors.SurfaceInput, RoundedCornerShape(10.dp))
-                                .padding(3.dp),
+                                .background(NuxColors.SurfaceInput, RoundedCornerShape(8.dp))
+                                .padding(2.5.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             // Tab Skin
@@ -368,10 +374,10 @@ fun NuxWardrobeDialog(
                                     .weight(1f)
                                     .background(
                                         if (activeTab == "skin") NuxColors.ForestGreen else Color.Transparent,
-                                        RoundedCornerShape(8.dp)
+                                        RoundedCornerShape(6.dp)
                                     )
                                     .clickable { activeTab = "skin" }
-                                    .padding(vertical = 6.dp),
+                                    .padding(vertical = 5.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -381,12 +387,12 @@ fun NuxWardrobeDialog(
                                         tint = if (activeTab == "skin") Color.White else NuxColors.GrayNeutral,
                                         modifier = Modifier.size(13.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "KUSTOM SKIN",
                                         color = if (activeTab == "skin") Color.White else NuxColors.DarkGray,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 10.5.sp
+                                        fontSize = 10.sp
                                     )
                                 }
                             }
@@ -397,10 +403,10 @@ fun NuxWardrobeDialog(
                                     .weight(1f)
                                     .background(
                                         if (activeTab == "cape") Color(0xFFA855F7) else Color.Transparent,
-                                        RoundedCornerShape(8.dp)
+                                        RoundedCornerShape(6.dp)
                                     )
                                     .clickable { activeTab = "cape" }
-                                    .padding(vertical = 6.dp),
+                                    .padding(vertical = 5.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -410,24 +416,22 @@ fun NuxWardrobeDialog(
                                         tint = if (activeTab == "cape") Color.White else NuxColors.GrayNeutral,
                                         modifier = Modifier.size(13.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "JUBAH / CAPE",
                                         color = if (activeTab == "cape") Color.White else NuxColors.DarkGray,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 10.5.sp
+                                        fontSize = 10.sp
                                     )
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
-
                         // TAB CONTENT: SKIN
                         if (activeTab == "skin") {
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 // Upload Button
                                 NuxButton(
@@ -437,18 +441,18 @@ fun NuxWardrobeDialog(
                                     cornerRadius = NuxSizes.CornerRadiusSmall,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(38.dp)
+                                        .height(32.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.UploadFile,
                                         contentDescription = null,
-                                        modifier = Modifier.size(14.dp)
+                                        modifier = Modifier.size(13.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(5.dp))
                                     Text(
                                         text = "PILIH FILE SKIN (.PNG)",
                                         fontWeight = FontWeight.Black,
-                                        fontSize = 10.5.sp
+                                        fontSize = 10.sp
                                     )
                                 }
 
@@ -456,13 +460,13 @@ fun NuxWardrobeDialog(
                                 Text(
                                     text = "TIPE MODEL LENGAN:",
                                     color = NuxColors.GrayNeutral,
-                                    fontSize = 9.5.sp,
+                                    fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold
                                 )
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
                                     // Classic (Klasik - 4px)
                                     val isClassic = selectedModel == "classic"
@@ -481,21 +485,21 @@ fun NuxWardrobeDialog(
                                             .clickable {
                                                 selectedModel = "classic"
                                                 playerSkin.loadSkin(currentSkinFile, "classic")
-                                                persistAccountChanges(currentSkinFile, currentCapeFile, "classic")
+                                                statusMessage = "Model Klasik dipilih (Preview) — Klik Simpan"
                                             }
-                                            .padding(vertical = 8.dp, horizontal = 10.dp)
+                                            .padding(vertical = 6.dp, horizontal = 8.dp)
                                     ) {
                                         Column {
                                             Text(
                                                 text = "Klasik",
                                                 color = if (isClassic) NuxColors.ForestGreen else NuxColors.DarkGray,
-                                                fontSize = 10.5.sp,
+                                                fontSize = 10.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
                                             Text(
                                                 text = "Lengan tebal (4px)",
                                                 color = NuxColors.GrayNeutral,
-                                                fontSize = 8.5.sp
+                                                fontSize = 8.sp
                                             )
                                         }
                                     }
@@ -517,21 +521,21 @@ fun NuxWardrobeDialog(
                                             .clickable {
                                                 selectedModel = "slim"
                                                 playerSkin.loadSkin(currentSkinFile, "slim")
-                                                persistAccountChanges(currentSkinFile, currentCapeFile, "slim")
+                                                statusMessage = "Model Slim dipilih (Preview) — Klik Simpan"
                                             }
-                                            .padding(vertical = 8.dp, horizontal = 10.dp)
+                                            .padding(vertical = 6.dp, horizontal = 8.dp)
                                     ) {
                                         Column {
                                             Text(
                                                 text = "Slim",
                                                 color = if (isSlim) NuxColors.ForestGreen else NuxColors.DarkGray,
-                                                fontSize = 10.5.sp,
+                                                fontSize = 10.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
                                             Text(
                                                 text = "Lengan ramping (3px)",
                                                 color = NuxColors.GrayNeutral,
-                                                fontSize = 8.5.sp
+                                                fontSize = 8.sp
                                             )
                                         }
                                     }
@@ -546,16 +550,15 @@ fun NuxWardrobeDialog(
                                             selectedModel = "classic"
                                             playerSkin.resetSkin()
                                             playerSkin.loadCape(currentCapeFile)
-                                            persistAccountChanges(null, currentCapeFile, "classic")
-                                            statusMessage = "Skin direset ke default Steve"
+                                            statusMessage = "Skin direset ke default Steve (Preview) — Klik Simpan"
                                         }
-                                        .padding(vertical = 4.dp),
+                                        .padding(vertical = 3.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = "↺ Reset ke Skin Default (Klasik)",
                                         color = NuxColors.GrayNeutral,
-                                        fontSize = 10.sp,
+                                        fontSize = 9.5.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
@@ -564,7 +567,7 @@ fun NuxWardrobeDialog(
                             // TAB CONTENT: CAPE
                             Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                verticalArrangement = Arrangement.spacedBy(5.dp)
                             ) {
                                 // Upload Custom Cape
                                 NuxButton(
@@ -574,78 +577,84 @@ fun NuxWardrobeDialog(
                                     cornerRadius = NuxSizes.CornerRadiusSmall,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(34.dp)
+                                        .height(30.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.UploadFile,
                                         contentDescription = null,
-                                        modifier = Modifier.size(13.dp)
+                                        modifier = Modifier.size(12.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(5.dp))
                                     Text(
                                         text = "PILIH FILE CAPE KUSTOM (.PNG)",
                                         fontWeight = FontWeight.Black,
-                                        fontSize = 10.sp
+                                        fontSize = 9.5.sp
                                     )
                                 }
 
                                 Text(
                                     text = "ATAU PILIH PRESET JUBAH:",
                                     color = NuxColors.GrayNeutral,
-                                    fontSize = 9.sp,
+                                    fontSize = 8.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
 
-                                // Preset Capes Grid
-                                LazyVerticalGrid(
-                                    columns = GridCells.Fixed(2),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalArrangement = Arrangement.spacedBy(5.dp),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(115.dp)
+                                // Preset Capes Grid (Chunked Rows for smooth vertical scrolling)
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    items(SkinUtils.PRESET_CAPES) { preset ->
-                                        val isPresetSelected = selectedPresetCapeId == preset.id || (preset.id == "none" && currentCapeFile == null)
-                                        Box(
-                                            modifier = Modifier
-                                                .background(
-                                                    if (isPresetSelected) Color(preset.badgeColor).copy(alpha = 0.18f) else NuxColors.SurfaceInput,
-                                                    RoundedCornerShape(8.dp)
-                                                )
-                                                .border(
-                                                    1.dp,
-                                                    if (isPresetSelected) Color(preset.badgeColor) else NuxColors.CardBorder,
-                                                    RoundedCornerShape(8.dp)
-                                                )
-                                                .clickable {
-                                                    selectedPresetCapeId = preset.id
-                                                    scope.launch {
-                                                        val generatedCape = SkinUtils.applyPresetCape(context, account.id, preset.id)
-                                                        currentCapeFile = generatedCape
-                                                        playerSkin.loadCape(generatedCape)
-                                                        persistAccountChanges(currentSkinFile, generatedCape, selectedModel)
-                                                        statusMessage = if (preset.id == "none") "Cape dilepas" else "Jubah ${preset.name} dipilih"
-                                                    }
-                                                }
-                                                .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    SkinUtils.PRESET_CAPES.chunked(2).forEach { pair ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                                         ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
+                                            pair.forEach { preset ->
+                                                val isPresetSelected = selectedPresetCapeId == preset.id || (preset.id == "none" && currentCapeFile == null)
                                                 Box(
                                                     modifier = Modifier
-                                                        .size(8.dp)
-                                                        .background(Color(preset.badgeColor), CircleShape)
-                                                )
-                                                Text(
-                                                    text = preset.name,
-                                                    color = if (isPresetSelected) Color(preset.badgeColor) else NuxColors.DarkGray,
-                                                    fontSize = 9.5.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    maxLines = 1
-                                                )
+                                                        .weight(1f)
+                                                        .background(
+                                                            if (isPresetSelected) Color(preset.badgeColor).copy(alpha = 0.18f) else NuxColors.SurfaceInput,
+                                                            RoundedCornerShape(7.dp)
+                                                        )
+                                                        .border(
+                                                            1.dp,
+                                                            if (isPresetSelected) Color(preset.badgeColor) else NuxColors.CardBorder,
+                                                            RoundedCornerShape(7.dp)
+                                                        )
+                                                        .clickable {
+                                                            selectedPresetCapeId = preset.id
+                                                            scope.launch {
+                                                                val generatedCape = SkinUtils.applyPresetCape(context, account.id, preset.id)
+                                                                currentCapeFile = generatedCape
+                                                                playerSkin.loadCape(generatedCape)
+                                                                statusMessage = if (preset.id == "none") "Cape dilepas (Preview) — Klik Simpan" else "Jubah ${preset.name} dipilih (Preview) — Klik Simpan"
+                                                            }
+                                                        }
+                                                        .padding(horizontal = 7.dp, vertical = 5.dp)
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                                    ) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(7.dp)
+                                                                .background(Color(preset.badgeColor), CircleShape)
+                                                        )
+                                                        Text(
+                                                            text = preset.name,
+                                                            color = if (isPresetSelected) Color(preset.badgeColor) else NuxColors.DarkGray,
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            maxLines = 1
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            if (pair.size == 1) {
+                                                Spacer(modifier = Modifier.weight(1f))
                                             }
                                         }
                                     }
@@ -654,21 +663,23 @@ fun NuxWardrobeDialog(
                         }
                     }
 
-                    // Bottom Action Bar
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Bottom Action Bar (PINNED & ALWAYS VISIBLE)
                     Column(modifier = Modifier.fillMaxWidth()) {
                         if (statusMessage != null) {
                             Text(
                                 text = statusMessage!!,
                                 color = NuxColors.ForestGreen,
-                                fontSize = 9.5.sp,
+                                fontSize = 9.sp,
                                 maxLines = 1
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
                         }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             NuxButton(
                                 onClick = onDismissRequest,
@@ -676,9 +687,9 @@ fun NuxWardrobeDialog(
                                 contentColor = NuxColors.DarkGray,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(38.dp)
+                                    .height(32.dp)
                             ) {
-                                Text("BATAL", fontWeight = FontWeight.Bold, fontSize = 10.5.sp)
+                                Text("BATAL", fontWeight = FontWeight.Bold, fontSize = 10.sp)
                             }
 
                             NuxButton(
@@ -691,19 +702,19 @@ fun NuxWardrobeDialog(
                                 contentColor = Color.White,
                                 modifier = Modifier
                                     .weight(1.5f)
-                                    .height(38.dp)
+                                    .height(32.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Check,
                                     contentDescription = null,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(13.dp)
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(5.dp))
                                 Text(
                                     text = "SIMPAN PERUBAHAN",
                                     fontWeight = FontWeight.Black,
-                                    fontSize = 10.5.sp,
-                                    letterSpacing = 0.5.sp
+                                    fontSize = 10.sp,
+                                    letterSpacing = 0.4.sp
                                 )
                             }
                         }

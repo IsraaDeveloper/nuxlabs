@@ -87,16 +87,19 @@ class MinecraftDownloader(
                 )
             }
 
-            // 3. Download Libraries (Parallel with 24 concurrent workers)
+            // 3. Download Libraries (Parallel with 48 Turbo threads for Premium, 8 threads for Free)
             val libraries = detail.libraries ?: emptyList()
             val allowedLibs = libraries.filter { isLibraryAllowed(it) }
             val libDir = InstanceManager.getLibrariesDir(context)
             if (!libDir.exists()) libDir.mkdirs()
 
+            val isPremium = com.israadev.nuxlauncher.core.account.AccountManager.launcherUser.value?.isActivated == true
+            val libThreads = if (isPremium) 48 else 8
+
             val totalLibs = allowedLibs.size
             if (totalLibs > 0) {
                 val downloadedLibs = AtomicInteger(0)
-                val semaphore = Semaphore(48) // Parallel 48 concurrent workers (high-speed mirror)
+                val semaphore = Semaphore(libThreads)
 
                 val libJobs = allowedLibs.map { lib ->
                     async {
@@ -117,7 +120,7 @@ class MinecraftDownloader(
                             }
                             val count = downloadedLibs.incrementAndGet()
                             val p = 0.20f + (count.toFloat() / totalLibs) * 0.40f
-                            onProgress(p, "Mengunduh libraries ($count/$totalLibs - 48 Threads)...")
+                            onProgress(p, "Mengunduh libraries ($count/$totalLibs - ${if (isPremium) "Turbo 48x Threads" else "Standard 8x Threads"})...")
                         }
                     }
                 }
@@ -136,7 +139,7 @@ class MinecraftDownloader(
                     downloadFile(assetIndex.url, indexFile)
                 }
 
-                // Download objects (Parallel with 32 concurrent workers)
+                // Download objects (Parallel concurrency: 48 Turbo for Premium, 8 for Free)
                 if (indexFile.exists()) {
                     try {
                         val indexContent = gson.fromJson(indexFile.readText(), AssetIndexContent::class.java)
@@ -145,7 +148,8 @@ class MinecraftDownloader(
                         val objectsDir = File(assetsDir, "objects")
 
                         val downloadedAssets = AtomicInteger(0)
-                        val semaphore = Semaphore(64) // Parallel 64 concurrent workers for game assets
+                        val assetThreads = if (isPremium) 48 else 8
+                        val semaphore = Semaphore(assetThreads)
 
                         val assetJobs = objects.map { entry ->
                             async {
@@ -164,7 +168,7 @@ class MinecraftDownloader(
                                     val count = downloadedAssets.incrementAndGet()
                                     if (count % 10 == 0 || count == totalObjects) {
                                         val p = 0.65f + (count.toFloat() / totalObjects) * 0.27f
-                                        onProgress(p, "Mengunduh aset game ($count/$totalObjects - 64 Threads)...")
+                                        onProgress(p, "Mengunduh aset game ($count/$totalObjects - ${if (isPremium) "Turbo 48x Threads" else "Standard 8x Threads"})...")
                                     }
                                 }
                             }

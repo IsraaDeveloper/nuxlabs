@@ -22,4 +22,27 @@ data class NuxRendererInfo(
     val dlopenLibs: List<String> = emptyList(),
     val minMCVersion: String? = null,
     val maxMCVersion: String? = null
-)
+) {
+    val isConfigurable: Boolean
+        get() {
+            // MobileGlues (baik bawaan maupun plugin) bukan renderer yang memiliki panel setting gear di Zalith
+            if (id == "mobileglues" || 
+                id.contains("mobileglue", ignoreCase = true) || 
+                pluginPackageName == "com.fcl.plugin.mobileglues" || 
+                displayName.contains("MobileGlues", ignoreCase = true)) {
+                return false
+            }
+
+            // MobileGL (top.mobilegl.plugin atau nama MobileGL) adalah configurable persis Zalith
+            if (pluginPackageName == "top.mobilegl.plugin" || 
+                id == "mobilegl" ||
+                id == "plugin_top.mobilegl.plugin" ||
+                displayName.equals("MobileGL", ignoreCase = true) ||
+                (displayName.contains("MobileGL", ignoreCase = true) && !displayName.contains("MobileGlues", ignoreCase = true))) {
+                return true
+            }
+
+            // Periksa apakah renderer terdaftar di NuxRendererV2Manager dan memiliki unit konfigurasi aktif
+            return com.israadev.nuxlauncher.core.renderer.v2.NuxRendererV2Manager.isConfigurableRenderer(this)
+        }
+}

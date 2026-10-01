@@ -43,6 +43,7 @@ import com.israadev.nuxlauncher.core.social.*
 import com.israadev.nuxlauncher.ui.components.NuxBadge
 import com.israadev.nuxlauncher.ui.components.NuxNetworkImage
 import com.israadev.nuxlauncher.ui.components.NuxUserBadge
+import com.israadev.nuxlauncher.ui.dialogs.NuxPremiumDialog
 import com.israadev.nuxlauncher.ui.theme.NuxColors
 import com.israadev.nuxlauncher.ui.theme.NuxSizes
 import kotlinx.coroutines.launch
@@ -75,6 +76,7 @@ fun FriendsScreen(
     val voiceMessages by NuxSocialManager.voiceMessages.collectAsState()
     val searchResults by NuxSocialManager.searchResults.collectAsState()
     val isSearching by NuxSocialManager.isSearching.collectAsState()
+    val launcherUser by AccountManager.launcherUser.collectAsState()
 
     var selectedTab by remember { mutableStateOf("friends") } // "room_chat", "friends", "rooms", "requests"
     var searchQuery by remember { mutableStateOf("") }
@@ -90,6 +92,8 @@ fun FriendsScreen(
 
     var showAddFriendDialog by remember { mutableStateOf(false) }
     var showCreateRoomDialog by remember { mutableStateOf(false) }
+    var showPremiumDialog by remember { mutableStateOf(false) }
+    var premiumInitialPrompt by remember { mutableStateOf<String?>(null) }
     var roomToJoinWithPassword by remember { mutableStateOf<NuxVoiceRoom?>(null) }
     var replyingToMessage by remember { mutableStateOf<NuxChatMessage?>(null) }
 
@@ -181,7 +185,14 @@ fun FriendsScreen(
                         .clip(RoundedCornerShape(6.dp))
                         .background(NuxColors.ForestGreen.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
                         .border(1.dp, NuxColors.ForestGreen.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
-                        .clickable { showCreateRoomDialog = true }
+                        .clickable {
+                            if (launcherUser?.isActivated != true) {
+                                premiumInitialPrompt = "Voice Rooms real-time mabar (LiveKit WebRTC) adalah fitur eksklusif NUX Premium. Upgrade akun Anda untuk membuat dan bergabung ke ruang suara mabar!"
+                                showPremiumDialog = true
+                            } else {
+                                showCreateRoomDialog = true
+                            }
+                        }
                         .padding(horizontal = 9.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -359,6 +370,11 @@ fun FriendsScreen(
                                                 room = room,
                                                 isJoined = activeVoiceRoom?.id == room.id,
                                                 onJoin = {
+                                                    if (launcherUser?.isActivated != true) {
+                                                        premiumInitialPrompt = "Voice Rooms real-time mabar (LiveKit WebRTC) adalah fitur eksklusif NUX Premium. Upgrade akun Anda untuk mengobrol suara bersama teman!"
+                                                        showPremiumDialog = true
+                                                        return@VoiceRoomItem
+                                                    }
                                                     if (room.isLocked) {
                                                         roomToJoinWithPassword = room
                                                     } else {
@@ -582,6 +598,17 @@ fun FriendsScreen(
                 }
             },
             onDismiss = { roomToJoinWithPassword = null }
+        )
+    }
+
+    // 4. Dialog NUX Premium & Showcase
+    if (showPremiumDialog) {
+        NuxPremiumDialog(
+            initialPrompt = premiumInitialPrompt,
+            onDismissRequest = {
+                showPremiumDialog = false
+                premiumInitialPrompt = null
+            }
         )
     }
 }

@@ -97,9 +97,14 @@ object GameLauncher {
         }
 
         // 2. Fabric Libraries
+        val loaderArtifactKeys = mutableSetOf<String>()
         if (isFabric && fabricProfile != null) {
             fabricProfile.libraries.forEach { lib ->
                 if (lib.name.contains("org.lwjgl")) return@forEach
+                val parts = lib.name.split(":")
+                if (parts.size >= 2) {
+                    loaderArtifactKeys.add("${parts[0]}:${parts[1]}")
+                }
                 val relPath = com.israadev.nuxlauncher.core.fabric.FabricService.artifactToPath(lib.name)
                 if (relPath != null) {
                     val file = File(libDir, relPath)
@@ -110,10 +115,21 @@ object GameLauncher {
             }
         }
 
-        // 3. Mojang libraries (excluding desktop org.lwjgl)
+        // 3. Mojang libraries (excluding desktop org.lwjgl and libraries already provided/overridden by mod loader)
         versionDetail?.libraries?.forEach { lib ->
             val name = lib.name ?: ""
             if (name.contains("org.lwjgl")) return@forEach
+
+            val parts = name.split(":")
+            if (parts.size >= 2) {
+                val groupArtifact = "${parts[0]}:${parts[1]}"
+                if (loaderArtifactKeys.contains(groupArtifact)) return@forEach
+            }
+
+            // Exclude vanilla ASM when running under Fabric (Fabric strictly provides & requires its own ASM)
+            if (isFabric && (name.startsWith("org.ow2.asm:") || lib.downloads?.artifact?.path?.contains("org/ow2/asm") == true)) {
+                return@forEach
+            }
 
             val path = lib.downloads?.artifact?.path
             if (path != null) {
@@ -130,7 +146,7 @@ object GameLauncher {
             classpathEntries.add(clientJar.absolutePath)
         }
 
-        val classpath = classpathEntries.joinToString(File.pathSeparator)
+        val classpath = classpathEntries.distinct().joinToString(File.pathSeparator)
         val assetsDir = InstanceManager.getAssetsDir(context)
 
         val userType = if (account.safeAccountType == "microsoft") "msa" else "mojang"

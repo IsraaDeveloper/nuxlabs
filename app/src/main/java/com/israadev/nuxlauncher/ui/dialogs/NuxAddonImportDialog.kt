@@ -7,8 +7,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.CircularProgressIndicator
@@ -100,7 +102,7 @@ fun NuxAddonImportDialog(
             NuxCard(
                 modifier = Modifier
                     .width(520.dp)
-                    .wrapContentHeight(),
+                    .fillMaxHeight(0.92f),
                 backgroundColor = NuxColors.SurfaceElevated,
                 borderColor = Color(0x3310B981),
                 cornerRadius = NuxSizes.CornerRadiusLarge,
@@ -108,8 +110,8 @@ fun NuxAddonImportDialog(
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp)
+                        .fillMaxSize()
+                        .padding(16.dp)
                 ) {
                     // Header
                     Row(
@@ -170,278 +172,286 @@ fun NuxAddonImportDialog(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    // File Info Box
-                    val fileCardShape = RoundedCornerShape(10.dp)
-                    Box(
+                    // Scrollable Dialog Body
+                    Column(
                         modifier = Modifier
+                            .weight(1f)
                             .fillMaxWidth()
-                            .clip(fileCardShape)
-                            .background(Color(0xFF12141A), fileCardShape)
-                            .border(1.dp, Color(0x22FFFFFF), fileCardShape)
-                            .padding(12.dp)
+                            .verticalScroll(rememberScrollState())
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF1E222D)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                val icon = when (selectedType) {
-                                    "mods" -> "🧩"
-                                    "modpacks" -> "📦"
-                                    "resourcepacks" -> "🎨"
-                                    "shaderpacks" -> "✨"
-                                    else -> "📄"
-                                }
-                                Text(text = icon, fontSize = 20.sp)
-                            }
-
-                            Spacer(modifier = Modifier.width(10.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = pendingImport.fileName,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Text(
-                                    text = "Tipe file: ${selectedType.uppercase()} · Siap dipasang",
-                                    color = Color(0xFFA1A1AA),
-                                    fontSize = 10.5.sp
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Type Selector Chips
-                    Text(
-                        text = "KATEGORI ADDON",
-                        color = Color(0xFF71717A),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(ADDON_TYPES) { option ->
-                            val isSelected = selectedType == option.id
-                            val chipShape = RoundedCornerShape(8.dp)
-                            Box(
-                                modifier = Modifier
-                                    .clip(chipShape)
-                                    .background(
-                                        if (isSelected) NuxColors.ForestGreen.copy(alpha = 0.2f) else Color(0xFF161922),
-                                        chipShape
-                                    )
-                                    .border(
-                                        width = 1.dp,
-                                        color = if (isSelected) NuxColors.ForestGreen else Color(0x18FFFFFF),
-                                        shape = chipShape
-                                    )
-                                    .clickable(enabled = !isImporting) {
-                                        selectedType = option.id
-                                    }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(text = option.icon, fontSize = 12.sp)
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                    Text(
-                                        text = option.label,
-                                        color = if (isSelected) Color.White else Color(0xFFA1A1AA),
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Instance Selector
-                    Text(
-                        text = "TARGET INSTANCE MINECRAFT",
-                        color = Color(0xFF71717A),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    if (instances.isEmpty()) {
+                        // File Info Box
+                        val fileCardShape = RoundedCornerShape(10.dp)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF271318))
-                                .border(1.dp, Color(0xFFF43F5E).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                                .padding(10.dp)
+                                .clip(fileCardShape)
+                                .background(Color(0xFF12141A), fileCardShape)
+                                .border(1.dp, Color(0x22FFFFFF), fileCardShape)
+                                .padding(12.dp)
                         ) {
-                            Text(
-                                text = "⚠️ Belum ada instance Minecraft yang dibuat! Buat instance terlebih dahulu di Dashboard.",
-                                color = Color(0xFFFECDD3),
-                                fontSize = 11.sp
-                            )
-                        }
-                    } else {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            items(instances) { inst ->
-                                val isSelected = selectedInstance?.id == inst.id
-                                val cardShape = RoundedCornerShape(8.dp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .clip(cardShape)
+                                        .size(38.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0xFF1E222D)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    val icon = when (selectedType) {
+                                        "mods" -> "🧩"
+                                        "modpacks" -> "📦"
+                                        "resourcepacks" -> "🎨"
+                                        "shaderpacks" -> "✨"
+                                        else -> "📄"
+                                    }
+                                    Text(text = icon, fontSize = 20.sp)
+                                }
+
+                                Spacer(modifier = Modifier.width(10.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = pendingImport.fileName,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = "Tipe file: ${selectedType.uppercase()} · Siap dipasang",
+                                        color = Color(0xFFA1A1AA),
+                                        fontSize = 10.5.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Type Selector Chips
+                        Text(
+                            text = "KATEGORI ADDON",
+                            color = Color(0xFF71717A),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(ADDON_TYPES) { option ->
+                                val isSelected = selectedType == option.id
+                                val chipShape = RoundedCornerShape(8.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .clip(chipShape)
                                         .background(
-                                            if (isSelected) NuxColors.ForestGreen.copy(alpha = 0.18f) else Color(0xFF161922),
-                                            cardShape
+                                            if (isSelected) NuxColors.ForestGreen.copy(alpha = 0.2f) else Color(0xFF161922),
+                                            chipShape
                                         )
                                         .border(
                                             width = 1.dp,
                                             color = if (isSelected) NuxColors.ForestGreen else Color(0x18FFFFFF),
-                                            shape = cardShape
+                                            shape = chipShape
                                         )
                                         .clickable(enabled = !isImporting) {
-                                            selectedInstance = inst
+                                            selectedType = option.id
                                         }
-                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Column {
-                                            Text(
-                                                text = inst.name,
-                                                color = Color.White,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 12.sp
+                                        Text(text = option.icon, fontSize = 12.sp)
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text(
+                                            text = option.label,
+                                            color = if (isSelected) Color.White else Color(0xFFA1A1AA),
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Instance Selector
+                        Text(
+                            text = "TARGET INSTANCE MINECRAFT",
+                            color = Color(0xFF71717A),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        if (instances.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF271318))
+                                    .border(1.dp, Color(0xFFF43F5E).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                                    .padding(10.dp)
+                            ) {
+                                Text(
+                                    text = "⚠️ Belum ada instance Minecraft yang dibuat! Buat instance terlebih dahulu di Dashboard.",
+                                    color = Color(0xFFFECDD3),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        } else {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                items(instances) { inst ->
+                                    val isSelected = selectedInstance?.id == inst.id
+                                    val cardShape = RoundedCornerShape(8.dp)
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(cardShape)
+                                            .background(
+                                            if (isSelected) NuxColors.ForestGreen.copy(alpha = 0.18f) else Color(0xFF161922),
+                                                cardShape
                                             )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = "v${inst.mcVersion} · ${inst.loader.uppercase()}",
-                                                color = if (isSelected) NuxColors.MintGreen else Color(0xFF71717A),
-                                                fontSize = 10.sp
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isSelected) NuxColors.ForestGreen else Color(0x18FFFFFF),
+                                                shape = cardShape
                                             )
-                                        }
-                                        if (isSelected) {
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(16.dp)
-                                                    .background(NuxColors.ForestGreen, CircleShape),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                androidx.compose.material3.Icon(
-                                                    imageVector = Icons.Default.Check,
-                                                    contentDescription = null,
-                                                    tint = Color.Black,
-                                                    modifier = Modifier.size(11.dp)
+                                            .clickable(enabled = !isImporting) {
+                                                selectedInstance = inst
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Column {
+                                                Text(
+                                                    text = inst.name,
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp
                                                 )
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = "v${inst.mcVersion} · ${inst.loader.uppercase()}",
+                                                    color = if (isSelected) NuxColors.MintGreen else Color(0xFF71717A),
+                                                    fontSize = 10.sp
+                                                )
+                                            }
+                                            if (isSelected) {
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(16.dp)
+                                                        .background(NuxColors.ForestGreen, CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    androidx.compose.material3.Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = null,
+                                                        tint = Color.Black,
+                                                        modifier = Modifier.size(11.dp)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
 
-                    // Progress Section
-                    if (isImporting) {
-                        Spacer(modifier = Modifier.height(14.dp))
-                        val progressShape = RoundedCornerShape(8.dp)
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(progressShape)
-                                .background(Color(0xFF101C19), progressShape)
-                                .border(1.dp, NuxColors.ForestGreen.copy(alpha = 0.3f), progressShape)
-                                .padding(12.dp)
-                        ) {
-                            Column {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = if (importStatusText.isNotBlank()) importStatusText else "Memasang addon...",
-                                        color = NuxColors.MintGreen,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    if (importTotal > 0) {
+                        // Progress Section
+                        if (isImporting) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            val progressShape = RoundedCornerShape(8.dp)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(progressShape)
+                                    .background(Color(0xFF101C19), progressShape)
+                                    .border(1.dp, NuxColors.ForestGreen.copy(alpha = 0.3f), progressShape)
+                                    .padding(12.dp)
+                            ) {
+                                Column {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         Text(
-                                            text = "$importCurrent / $importTotal",
-                                            color = Color.White,
+                                            text = if (importStatusText.isNotBlank()) importStatusText else "Memasang addon...",
+                                            color = NuxColors.MintGreen,
                                             fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        if (importTotal > 0) {
+                                            Text(
+                                                text = "$importCurrent / $importTotal",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    if (importTotal > 0) {
+                                        LinearProgressIndicator(
+                                            progress = { (importCurrent.toFloat() / importTotal.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f) },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(6.dp)
+                                                .clip(RoundedCornerShape(3.dp)),
+                                            color = NuxColors.ForestGreen,
+                                            trackColor = Color(0xFF1E2A27)
+                                        )
+                                    } else {
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(6.dp)
+                                                .clip(RoundedCornerShape(3.dp)),
+                                            color = NuxColors.ForestGreen,
+                                            trackColor = Color(0xFF1E2A27)
                                         )
                                     }
                                 }
+                            }
+                        }
 
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                if (importTotal > 0) {
-                                    LinearProgressIndicator(
-                                        progress = { (importCurrent.toFloat() / importTotal.coerceAtLeast(1).toFloat()).coerceIn(0f, 1f) },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(6.dp)
-                                            .clip(RoundedCornerShape(3.dp)),
-                                        color = NuxColors.ForestGreen,
-                                        trackColor = Color(0xFF1E2A27)
-                                    )
-                                } else {
-                                    LinearProgressIndicator(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(6.dp)
-                                            .clip(RoundedCornerShape(3.dp)),
-                                        color = NuxColors.ForestGreen,
-                                        trackColor = Color(0xFF1E2A27)
-                                    )
-                                }
+                        // Error message
+                        errorMessage?.let { err ->
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF271318))
+                                    .border(1.dp, Color(0xFFF43F5E).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                                    .padding(10.dp)
+                            ) {
+                                Text(
+                                    text = "Gagal: $err",
+                                    color = Color(0xFFFECDD3),
+                                    fontSize = 11.sp
+                                )
                             }
                         }
                     }
 
-                    // Error message
-                    errorMessage?.let { err ->
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF271318))
-                                .border(1.dp, Color(0xFFF43F5E).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                                .padding(10.dp)
-                        ) {
-                            Text(
-                                text = "Gagal: $err",
-                                color = Color(0xFFFECDD3),
-                                fontSize = 11.sp
-                            )
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    // Action Buttons
+                    // Action Buttons (Sticky at bottom, always visible)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
@@ -513,8 +523,8 @@ fun NuxAddonImportDialog(
                             enabled = canInstall,
                             backgroundColor = NuxColors.ForestGreen,
                             contentColor = Color.White,
-                            cornerRadius = 10.dp,
-                            modifier = Modifier.height(40.dp)
+                            cornerRadius = 8.dp,
+                            modifier = Modifier.height(36.dp)
                         ) {
                             if (isImporting) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {

@@ -59,8 +59,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val launcherUser by AccountManager.launcherUser.collectAsState()
 
-            // Cek apakah akun terdaftar dan sudah diaktivasi menggunakan license key
-            val isActivated = launcherUser != null && launcherUser?.isActivated == true
+            // Pengguna yang sudah login (baik Free maupun Premium) langsung masuk ke Dashboard
+            val isLoggedIn = launcherUser != null
 
             NuxResponsiveTheme {
                 MaterialTheme {
@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = NuxColors.Background
                     ) {
-                        if (isActivated) {
+                        if (isLoggedIn) {
                             DashboardScreen()
                         } else {
                             AuthScreen(

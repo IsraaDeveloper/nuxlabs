@@ -48,6 +48,7 @@ import com.israadev.nuxlauncher.core.models.UserAccount
 import com.israadev.nuxlauncher.ui.components.*
 import com.israadev.nuxlauncher.ui.dialogs.NuxMicrosoftAuthDialog
 import com.israadev.nuxlauncher.ui.dialogs.NuxWardrobeDialog
+import com.israadev.nuxlauncher.ui.dialogs.NuxPremiumDialog
 import com.israadev.nuxlauncher.ui.theme.NuxColors
 import com.israadev.nuxlauncher.ui.theme.NuxSizes
 import kotlinx.coroutines.Job
@@ -71,10 +72,13 @@ fun AccountsScreen(
 
     val accounts by AccountManager.accounts.collectAsState()
     val currentAccount by AccountManager.currentAccount.collectAsState()
+    val launcherUser by AccountManager.launcherUser.collectAsState()
 
     var showAddAccountDialog by remember { mutableStateOf(false) }
     var accountToDelete by remember { mutableStateOf<UserAccount?>(null) }
     var accountForWardrobe by remember { mutableStateOf<UserAccount?>(null) }
+    var showPremiumDialog by remember { mutableStateOf(false) }
+    var premiumInitialPrompt by remember { mutableStateOf<String?>(null) }
 
     // 3D Player Model Preview (Interactive viewport like Zalith and Windows)
     val leftPlayerSkin = remember { PlayerSkin(context) }
@@ -159,7 +163,14 @@ fun AccountsScreen(
                     .clip(RoundedCornerShape(6.dp))
                     .background(NuxColors.ForestGreen.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
                     .border(1.dp, NuxColors.ForestGreen.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
-                    .clickable { showAddAccountDialog = true }
+                    .clickable {
+                        if (accounts.size >= 2 && launcherUser?.isActivated != true) {
+                            premiumInitialPrompt = "Pengguna Free dibatasi maksimal 2 akun tersimpan. Upgrade ke NUX Premium untuk menyimpan dan beralih antarakun tanpa batas!"
+                            showPremiumDialog = true
+                        } else {
+                            showAddAccountDialog = true
+                        }
+                    }
                     .padding(horizontal = 9.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -677,6 +688,16 @@ fun AccountsScreen(
                 }
             }
         }
+    }
+
+    if (showPremiumDialog) {
+        NuxPremiumDialog(
+            initialPrompt = premiumInitialPrompt,
+            onDismissRequest = {
+                showPremiumDialog = false
+                premiumInitialPrompt = null
+            }
+        )
     }
 }
 

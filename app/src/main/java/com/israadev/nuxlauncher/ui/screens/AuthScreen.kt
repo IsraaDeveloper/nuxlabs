@@ -455,14 +455,14 @@ fun AuthScreen(
                                     isLoading = false
                                     res.fold(
                                         onSuccess = { loginResult ->
-                                            if (loginResult.isActivated) {
-                                                AccountManager.saveAuthUser(context, loginResult.user)
-                                                onAuthSuccess()
-                                            } else {
-                                                pendingUser = loginResult.user
-                                                successMessage = "Akun belum aktif. Masukkan License Key untuk aktivasi."
-                                                mode = AuthMode.ACTIVATE_KEY
+                                            AccountManager.saveAuthUser(context, loginResult.user)
+                                            if (AccountManager.accounts.value.isEmpty()) {
+                                                AccountManager.addAccount(
+                                                    context,
+                                                    AccountManager.createGuestAccount(loginResult.user.username)
+                                                )
                                             }
+                                            onAuthSuccess()
                                         },
                                         onFailure = { err ->
                                             errorMessage = err.message ?: "Gagal masuk. Periksa kembali akun Anda."
@@ -482,6 +482,42 @@ fun AuthScreen(
                                     fontWeight = FontWeight.Black,
                                     fontSize = 13.sp,
                                     color = Color.White
+                                )
+                            }
+                        }
+
+                        // Tombol Masuk Langsung Sebagai Guest (Free)
+                        NuxButton(
+                            onClick = {
+                                val guestUser = AuthUser(
+                                    uid = "guest_" + java.util.UUID.randomUUID().toString().take(8),
+                                    email = "",
+                                    username = "NuxPlayer",
+                                    photoURL = "",
+                                    isActivated = false,
+                                    tier = "free"
+                                )
+                                AccountManager.saveAuthUser(context, guestUser)
+                                if (AccountManager.accounts.value.isEmpty()) {
+                                    AccountManager.addAccount(
+                                        context,
+                                        AccountManager.createGuestAccount("NuxPlayer")
+                                    )
+                                }
+                                onAuthSuccess()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            backgroundColor = Color(0xFF181C26),
+                            contentColor = NuxColors.MintGreen,
+                            enabled = !isLoading
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = NuxColors.MintGreen, modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = "MAIN LANGSUNG SEBAGAI GUEST (FREE)",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    color = NuxColors.MintGreen
                                 )
                             }
                         }
@@ -573,10 +609,14 @@ fun AuthScreen(
                                     isLoading = false
                                     res.fold(
                                         onSuccess = { regResult ->
-                                            pendingUser = regResult.user
-                                            successMessage = "Akun berhasil terdaftar! Silakan masukkan Key License kamu."
-                                            licenseKey = ""
-                                            mode = AuthMode.ACTIVATE_KEY
+                                            AccountManager.saveAuthUser(context, regResult.user)
+                                            if (AccountManager.accounts.value.isEmpty()) {
+                                                AccountManager.addAccount(
+                                                    context,
+                                                    AccountManager.createGuestAccount(regResult.user.username)
+                                                )
+                                            }
+                                            onAuthSuccess()
                                         },
                                         onFailure = { err ->
                                             errorMessage = err.message ?: "Gagal mendaftarkan akun."
@@ -798,6 +838,8 @@ fun AuthScreen(
                     // ==========================================
                     // 5. FORGOT PASSWORD (EMAIL)
                     // ==========================================
+                    // 5. FORGOT PASSWORD (EMAIL RESET VIA FIREBASE)
+                    // ==========================================
                     AuthMode.FORGOT_PASSWORD_EMAIL -> {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -807,6 +849,20 @@ fun AuthScreen(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color(0xFF94A3B8), modifier = Modifier.size(15.dp))
                             Text("Kembali ke Login", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF94A3B8))
                         }
+
+                        Text(
+                            text = "Reset Kata Sandi Akun",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
+
+                        Text(
+                            text = "Masukkan alamat email yang terdaftar. Firebase akan mengirimkan tautan (link) resmi ke email kamu untuk membuat kata sandi baru tanpa perlu kode OTP.",
+                            fontSize = 11.sp,
+                            color = Color(0xFF94A3B8),
+                            lineHeight = 16.sp
+                        )
 
                         AuthInputField(
                             value = email,
@@ -824,164 +880,18 @@ fun AuthScreen(
                                     return@NuxButton
                                 }
 
-                                if (!OtpCooldownManager.canSendOtp()) {
-                                    val remText = OtpCooldownManager.formatRemainingTime()
-                                    errorMessage = "Harap tunggu $remText sebelum meminta kode reset baru (Anti-Spam)."
-                                    return@NuxButton
-                                }
-
                                 isLoading = true
                                 errorMessage = ""
                                 coroutineScope.launch {
-                                    val res = AuthService.sendOtp(cleanEmail, "", "reset_password")
-                                    isLoading = false
-                                    res.fold(
-                                        onSuccess = { _ ->
-                                            OtpCooldownManager.markOtpSent(context)
-                                            successMessage = "Kode reset OTP berhasil dikirim ke $cleanEmail! Pastikan periksa folder SPAM / JUNK jika tidak ada di Inbox."
-                                            otpCode = ""
-                                            password = ""
-                                            confirmPassword = ""
-                                            mode = AuthMode.FORGOT_PASSWORD_RESET
-                                        },
-                                        onFailure = { err ->
-                                            errorMessage = err.message ?: "Gagal mengirim kode reset password."
-                                        }
-                                    )
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            backgroundColor = NuxColors.ForestGreen,
-                            enabled = !isLoading
-                        ) {
-                            Text(
-                                text = if (isLoading) "MENGIRIM..." else "KIRIM KODE RESET KE EMAIL",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
-                                color = Color.White
-                            )
-                        }
-                    }
-
-                    // ==========================================
-                    // 6. FORGOT PASSWORD (RESET WITH OTP)
-                    // ==========================================
-                    AuthMode.FORGOT_PASSWORD_RESET -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.clickable { mode = AuthMode.LOGIN }
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color(0xFF94A3B8), modifier = Modifier.size(15.dp))
-                                Text("Batal & Kembali", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF94A3B8))
-                            }
-
-                            Text(
-                                text = if (countdown > 0) "Kirim Ulang (${OtpCooldownManager.formatRemainingTime()})" else "Kirim Ulang Kode",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = if (countdown > 0) NuxColors.GrayNeutral else NuxColors.ForestGreen,
-                                modifier = Modifier.clickable(enabled = countdown == 0 && !isLoading) {
-                                    if (!OtpCooldownManager.canSendOtp()) {
-                                        errorMessage = "Harap tunggu ${OtpCooldownManager.formatRemainingTime()} sebelum meminta kode reset baru."
-                                        return@clickable
-                                    }
-                                    coroutineScope.launch {
-                                        isLoading = true
-                                        errorMessage = ""
-                                        val res = AuthService.sendOtp(email.trim(), "", "reset_password")
-                                        isLoading = false
-                                        res.fold(
-                                            onSuccess = {
-                                                OtpCooldownManager.markOtpSent(context)
-                                                successMessage = "Kode reset OTP baru telah dikirim ke $email!"
-                                            },
-                                            onFailure = { err ->
-                                                errorMessage = err.message ?: "Gagal mengirim ulang kode reset."
-                                            }
-                                        )
-                                    }
-                                }
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(modifier = Modifier.weight(0.4f)) {
-                                AuthInputField(
-                                    value = otpCode,
-                                    onValueChange = {
-                                        if (it.length <= 6) otpCode = it.filter { c -> c.isDigit() }
-                                        errorMessage = ""
-                                    },
-                                    label = "Kode OTP",
-                                    placeholder = "6 digit",
-                                    leadingIcon = Icons.Default.Key
-                                )
-                            }
-
-                            Box(modifier = Modifier.weight(0.6f)) {
-                                AuthInputField(
-                                    value = password,
-                                    onValueChange = { password = it; errorMessage = "" },
-                                    label = "Sandi Baru",
-                                    placeholder = "Min 6 karakter",
-                                    leadingIcon = Icons.Default.Lock,
-                                    isPassword = true,
-                                    isPasswordVisible = isPasswordVisible,
-                                    onPasswordToggle = { isPasswordVisible = !isPasswordVisible }
-                                )
-                            }
-                        }
-
-                        AuthInputField(
-                            value = confirmPassword,
-                            onValueChange = { confirmPassword = it; errorMessage = "" },
-                            label = "Konfirmasi Sandi Baru",
-                            placeholder = "Ulangi kata sandi baru",
-                            leadingIcon = Icons.Default.Lock,
-                            isPassword = true,
-                            isPasswordVisible = isPasswordVisible,
-                            onPasswordToggle = { isPasswordVisible = !isPasswordVisible }
-                        )
-
-                        NuxButton(
-                            onClick = {
-                                if (otpCode.length != 6) {
-                                    errorMessage = "Kode OTP harus 6 digit angka."
-                                    return@NuxButton
-                                }
-                                if (password.length < 6) {
-                                    errorMessage = "Kata sandi baru minimal 6 karakter."
-                                    return@NuxButton
-                                }
-                                if (password != confirmPassword) {
-                                    errorMessage = "Konfirmasi kata sandi tidak cocok."
-                                    return@NuxButton
-                                }
-
-                                isLoading = true
-                                errorMessage = ""
-                                coroutineScope.launch {
-                                    val res = AuthService.resetPassword(email, otpCode, password)
+                                    val res = AuthService.sendPasswordResetEmail(cleanEmail)
                                     isLoading = false
                                     res.fold(
                                         onSuccess = { msg ->
                                             successMessage = msg
-                                            password = ""
-                                            confirmPassword = ""
-                                            otpCode = ""
                                             mode = AuthMode.LOGIN
                                         },
                                         onFailure = { err ->
-                                            errorMessage = err.message ?: "Gagal memperbarui kata sandi."
+                                            errorMessage = err.message ?: "Gagal mengirim link reset password."
                                         }
                                     )
                                 }
@@ -990,12 +900,24 @@ fun AuthScreen(
                             backgroundColor = NuxColors.ForestGreen,
                             enabled = !isLoading
                         ) {
-                            Text(
-                                text = if (isLoading) "MENYIMPAN..." else "SIMPAN KATA SANDI BARU",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
-                                color = Color.White
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Default.Send, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = if (isLoading) "MENGIRIM LINK..." else "KIRIM LINK RESET PASSWORD",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+
+                    // ==========================================
+                    // 6. FORGOT PASSWORD (DEPRECATED - BYPASS)
+                    // ==========================================
+                    AuthMode.FORGOT_PASSWORD_RESET -> {
+                        LaunchedEffect(Unit) {
+                            mode = AuthMode.LOGIN
                         }
                     }
                 }

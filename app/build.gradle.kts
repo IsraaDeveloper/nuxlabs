@@ -23,8 +23,8 @@ android {
         applicationId = "com.israadev.nuxlauncher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 7
+        versionName = "1.0.6"
 
         buildConfigField("String", "SERVER_BASE_URL", "\"$rawServerUrl\"")
 
@@ -42,6 +42,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

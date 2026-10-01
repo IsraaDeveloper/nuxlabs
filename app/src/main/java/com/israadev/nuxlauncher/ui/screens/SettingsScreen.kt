@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,9 +45,13 @@ import com.israadev.nuxlauncher.core.auth.AuthService
 import com.israadev.nuxlauncher.core.models.LauncherSettings
 import com.israadev.nuxlauncher.core.renderer.NuxRendererRegistry
 import com.israadev.nuxlauncher.core.renderer.NuxRendererPluginManager
+import com.israadev.nuxlauncher.core.renderer.NuxRendererInfo
 import com.israadev.nuxlauncher.core.settings.SettingsManager
 import com.israadev.nuxlauncher.core.utils.NuxVersionUtils
 import com.israadev.nuxlauncher.ui.components.*
+import com.israadev.nuxlauncher.ui.dialogs.NuxRendererV2ConfigDialog
+import com.israadev.nuxlauncher.ui.dialogs.NuxAboutDialog
+import com.israadev.nuxlauncher.ui.dialogs.NuxPremiumDialog
 import com.israadev.nuxlauncher.ui.theme.NuxColors
 import com.israadev.nuxlauncher.ui.theme.NuxSizes
 import kotlinx.coroutines.launch
@@ -72,6 +77,9 @@ fun SettingsScreen(
     var isUploadingAvatar by remember { mutableStateOf(false) }
     var selectedPreviewUri by remember { mutableStateOf<Uri?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
+    var showPremiumDialog by remember { mutableStateOf(false) }
+    var premiumInitialPrompt by remember { mutableStateOf<String?>(null) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -203,6 +211,8 @@ fun SettingsScreen(
     var zinkPreferSystemDriver by remember(currentSettings.zinkPreferSystemDriver) { mutableStateOf(currentSettings.zinkPreferSystemDriver) }
     var vsyncInZink by remember(currentSettings.vsyncInZink) { mutableStateOf(currentSettings.vsyncInZink) }
     var showRendererDialog by remember { mutableStateOf(false) }
+    var showRendererConfigDialog by remember { mutableStateOf(false) }
+    var selectedConfigRenderer by remember { mutableStateOf<NuxRendererInfo?>(null) }
     var showAdrenoWarningDialog by remember { mutableStateOf(false) }
 
     val totalRamMb = remember { SettingsManager.getTotalDeviceMemoryMb(context) }
@@ -582,20 +592,47 @@ fun SettingsScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text("Status Lisensi", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = NuxColors.GrayNeutral)
-                                val tierText = if (launcherUser?.isActivated == true) {
+                                val isVip = launcherUser?.isActivated == true
+                                val tierText = if (isVip) {
                                     when (launcherUser?.tier?.lowercase()) {
-                                        "monthly" -> "PREMIUM BULANAN"
-                                        "yearly" -> "PREMIUM TAHUNAN"
-                                        else -> "PREMIUM LIFETIME"
+                                        "monthly" -> "VIP BULANAN"
+                                        "yearly" -> "VIP TAHUNAN"
+                                        else -> "VIP LIFETIME"
                                     }
                                 } else {
-                                    "TIDAK AKTIF"
+                                    "FREE MEMBER"
                                 }
                                 NuxBadge(
                                     text = tierText,
-                                    backgroundColor = if (launcherUser?.isActivated == true) NuxColors.ForestGreen.copy(alpha = 0.2f) else NuxColors.Coral.copy(alpha = 0.2f),
-                                    textColor = if (launcherUser?.isActivated == true) NuxColors.MintGreen else NuxColors.Coral
+                                    backgroundColor = if (isVip) Color(0xFFF59E0B).copy(alpha = 0.2f) else NuxColors.SurfaceElevated,
+                                    textColor = if (isVip) Color(0xFFFBBF24) else Color(0xFF94A3B8)
                                 )
+                            }
+
+                            // Tombol Buka Showcase & Upgrade NUX Premium
+                            val isUserVip = launcherUser?.isActivated == true
+                            NuxButton(
+                                onClick = {
+                                    premiumInitialPrompt = if (isUserVip) "Status NUX VIP Anda saat ini aktif!" else null
+                                    showPremiumDialog = true
+                                },
+                                backgroundColor = if (isUserVip) Color(0xFF1E1710) else Color(0xFFF59E0B),
+                                contentColor = if (isUserVip) Color(0xFFFBBF24) else Color.Black,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(30.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                ) {
+                                    Text(if (isUserVip) "👑" else "★", fontSize = 11.sp)
+                                    Text(
+                                        text = if (isUserVip) "STATUS VIP & KELOLA KEY" else "UPGRADE KE NUX PREMIUM",
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 9.sp
+                                    )
+                                }
                             }
 
                             HorizontalDivider(color = NuxColors.CardBorder, thickness = 0.5.dp)
@@ -626,6 +663,36 @@ fun SettingsScreen(
                                     fontSize = 9.5.sp,
                                     color = NuxColors.GrayNeutral
                                 )
+                            }
+
+                            HorizontalDivider(color = NuxColors.CardBorder, thickness = 0.5.dp)
+
+                            // Tombol Dialog Tentang & Lisensi Open Source (GPL-3.0 & Zalith Compliance)
+                            NuxButton(
+                                onClick = { showAboutDialog = true },
+                                backgroundColor = NuxColors.SurfaceInput,
+                                contentColor = Color.White,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(34.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Info,
+                                        contentDescription = null,
+                                        tint = NuxColors.ForestGreen,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Text(
+                                        text = "TENTANG & LISENSI OPEN SOURCE",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 9.sp,
+                                        color = Color.White
+                                    )
+                                }
                             }
                         }
                     }
@@ -995,10 +1062,6 @@ fun SettingsScreen(
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(NuxColors.SurfaceInput)
                                 .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(6.dp))
-                                .clickable {
-                                    NuxRendererPluginManager.scanPlugins(context)
-                                    showRendererDialog = true
-                                }
                                 .padding(10.dp)
                         ) {
                             // Top Row: Section label & GANTI button
@@ -1013,21 +1076,49 @@ fun SettingsScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
-                                Box(
-                                    modifier = Modifier
-                                        .height(24.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(NuxColors.SurfaceElevated)
-                                        .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(4.dp))
-                                        .padding(horizontal = 8.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "GANTI",
-                                        fontSize = 9.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = NuxColors.MintGreen
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (activeRendererInfo.isConfigurable) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(NuxColors.SurfaceElevated)
+                                                .border(1.dp, NuxColors.MintGreen.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                                .clickable {
+                                                    selectedConfigRenderer = activeRendererInfo
+                                                    showRendererConfigDialog = true
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Settings,
+                                                contentDescription = "Konfigurasi Renderer",
+                                                tint = NuxColors.MintGreen,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .height(24.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(NuxColors.SurfaceElevated)
+                                            .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(4.dp))
+                                            .clickable {
+                                                NuxRendererPluginManager.scanPlugins(context)
+                                                showRendererDialog = true
+                                            }
+                                            .padding(horizontal = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "GANTI",
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = NuxColors.MintGreen
+                                        )
+                                    }
                                 }
                             }
 
@@ -1827,6 +1918,11 @@ fun SettingsScreen(
                             Switch(
                                 checked = heroAnimationEnabled,
                                 onCheckedChange = { checked ->
+                                    if (checked && launcherUser?.isActivated != true) {
+                                        premiumInitialPrompt = "Kustomisasi Video Hero Banner MP4 hanya tersedia untuk member NUX Premium."
+                                        showPremiumDialog = true
+                                        return@Switch
+                                    }
                                     val videoFile = File(context.filesDir, "hero_banner.mp4")
                                     if (checked && (!videoFile.exists() || heroAnimationVideoPath.isBlank())) {
                                         Toast.makeText(context, "Silakan pilih video MP4 terlebih dahulu!", Toast.LENGTH_SHORT).show()
@@ -1921,7 +2017,12 @@ fun SettingsScreen(
                         ) {
                             NuxButton(
                                 onClick = {
-                                    videoPickerLauncher.launch("video/mp4")
+                                    if (launcherUser?.isActivated != true) {
+                                        premiumInitialPrompt = "Kustomisasi Video Hero Banner MP4 hanya tersedia untuk member NUX Premium."
+                                        showPremiumDialog = true
+                                    } else {
+                                        videoPickerLauncher.launch("video/mp4")
+                                    }
                                 },
                                 modifier = Modifier
                                     .weight(1f)
@@ -2389,21 +2490,46 @@ fun SettingsScreen(
                                                 color = if (isSelected) NuxColors.MintGreen else Color.White
                                             )
                                         }
-                                        Box(
-                                            modifier = Modifier
-                                                .background(
-                                                    if (isSelected) NuxColors.ForestGreen else NuxColors.SurfaceElevated,
-                                                    RoundedCornerShape(4.dp)
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (rendererItem.isConfigurable) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(22.dp)
+                                                        .clip(RoundedCornerShape(4.dp))
+                                                        .background(NuxColors.SurfaceElevated)
+                                                        .border(1.dp, NuxColors.MintGreen.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                                        .clickable {
+                                                            selectedConfigRenderer = rendererItem
+                                                            showRendererDialog = false
+                                                            showRendererConfigDialog = true
+                                                        },
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Settings,
+                                                        contentDescription = "Konfigurasi ${rendererItem.displayName}",
+                                                        tint = NuxColors.MintGreen,
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                            }
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(
+                                                        if (isSelected) NuxColors.ForestGreen else NuxColors.SurfaceElevated,
+                                                        RoundedCornerShape(4.dp)
+                                                    )
+                                                    .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(4.dp))
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = rendererItem.badge,
+                                                    fontSize = 8.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isSelected) Color.White else NuxColors.GrayNeutral
                                                 )
-                                                .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(4.dp))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                text = rendererItem.badge,
-                                                fontSize = 8.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (isSelected) Color.White else NuxColors.GrayNeutral
-                                            )
+                                            }
                                         }
                                     }
                                     Spacer(modifier = Modifier.height(2.dp))
@@ -2534,5 +2660,31 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    // Dialog Konfigurasi Renderer V2 (persis Zalith untuk MobileGlues, NGG dll)
+    if (showRendererConfigDialog && selectedConfigRenderer != null) {
+        NuxRendererV2ConfigDialog(
+            rendererInfo = selectedConfigRenderer,
+            onDismiss = { showRendererConfigDialog = false }
+        )
+    }
+
+    // Dialog Tentang & Lisensi Open Source (GPL-3.0 & Zalith Compliance)
+    if (showAboutDialog) {
+        NuxAboutDialog(
+            onDismissRequest = { showAboutDialog = false }
+        )
+    }
+
+    // Dialog NUX Premium & Showcase (Fitur 1 - 7 Eksklusif)
+    if (showPremiumDialog) {
+        NuxPremiumDialog(
+            initialPrompt = premiumInitialPrompt,
+            onDismissRequest = {
+                showPremiumDialog = false
+                premiumInitialPrompt = null
+            }
+        )
     }
 }

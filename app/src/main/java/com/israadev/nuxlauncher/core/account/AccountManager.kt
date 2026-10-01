@@ -171,6 +171,17 @@ object AccountManager {
     // MINECRAFT GAME ACCOUNTS OPERATIONS
     // ==========================================
 
+    fun createGuestAccount(username: String): UserAccount {
+        val clean = username.trim().ifBlank { "Player" }
+        return UserAccount(
+            id = UUID.randomUUID().toString(),
+            username = clean,
+            uuid = UUID.nameUUIDFromBytes("OfflinePlayer:$clean".toByteArray()).toString(),
+            isOffline = true,
+            accountType = "offline"
+        )
+    }
+
     fun addAccount(context: Context, account: UserAccount) {
         val list = _accounts.value.toMutableList()
         list.removeAll { it.id == account.id || (it.username.equals(account.username, ignoreCase = true) && it.safeAccountType == account.safeAccountType) }

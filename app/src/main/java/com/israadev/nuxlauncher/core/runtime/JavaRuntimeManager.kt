@@ -34,15 +34,53 @@ object JavaRuntimeManager {
         return File(getRuntimesDir(context), runtimeName)
     }
 
+    fun ensureExecutablePermissions(home: File) {
+        if (!home.exists() || !home.isDirectory) return
+
+        val javaBin = File(home, "bin/java")
+        if (javaBin.exists()) {
+            try {
+                Os.chmod(javaBin.absolutePath, 493) // 0755: rwxr-xr-x
+            } catch (_: Throwable) {}
+            javaBin.setExecutable(true, false)
+            javaBin.setReadable(true, false)
+        }
+
+        File(home, "bin").walkTopDown().forEach { file ->
+            if (file.isFile) {
+                try {
+                    Os.chmod(file.absolutePath, 493) // 0755
+                } catch (_: Throwable) {}
+                file.setExecutable(true, false)
+                file.setReadable(true, false)
+            }
+        }
+
+        File(home, "lib").walkTopDown().forEach { file ->
+            if (file.isFile && (file.extension == "so" || file.name.contains(".so"))) {
+                try {
+                    Os.chmod(file.absolutePath, 493) // 0755
+                } catch (_: Throwable) {}
+                file.setExecutable(true, false)
+                file.setReadable(true, false)
+            }
+        }
+
+        try {
+            Runtime.getRuntime().exec(arrayOf("chmod", "-R", "755", home.absolutePath)).waitFor()
+        } catch (_: Throwable) {}
+    }
+
     fun isRuntimeInstalled(context: Context, runtimeName: String): Boolean {
         val home = getRuntimeHome(context, runtimeName)
         if (!home.exists() || !home.isDirectory) return false
 
+        val permMarker = File(home, ".nux_perm_v2")
+        if (!permMarker.exists()) return false
+
         val javaBin = File(home, "bin/java")
-        if (!javaBin.exists()) return false
-        if (!javaBin.canExecute()) {
-            javaBin.setExecutable(true, false)
-        }
+        if (!javaBin.exists() || javaBin.length() == 0L) return false
+        ensureExecutablePermissions(home)
 
         // Verify libjli.so exists
         val jliFile = if (File(home, "lib/jli/libjli.so").exists()) {
@@ -109,9 +147,14 @@ object JavaRuntimeManager {
         try {
             val destDir = getRuntimeHome(context, runtimeName)
             if (isRuntimeInstalled(context, runtimeName)) {
+                ensureExecutablePermissions(destDir)
                 return@withContext Result.success(destDir)
             }
 
+            // Bersihkan direktori runtime lama yang mungkin rusak / salah permissions
+            if (destDir.exists()) {
+                destDir.deleteRecursively()
+            }
             destDir.mkdirs()
             val arch = getDeviceArch()
             val assetPath = "runtimes/$runtimeName"
@@ -141,20 +184,9 @@ object JavaRuntimeManager {
             }
 
             // 3. Mark executables & permissions across bin and lib folders
-            val javaBin = File(destDir, "bin/java")
-            if (javaBin.exists()) {
-                javaBin.setExecutable(true, false)
-                javaBin.setReadable(true, false)
-            }
-
-            File(destDir, "bin").walkTopDown().forEach { bin ->
-                bin.setExecutable(true, false)
-                bin.setReadable(true, false)
-            }
-
-            File(destDir, "lib").walkTopDown().filter { it.extension == "so" }.forEach { so ->
-                so.setExecutable(true, false)
-                so.setReadable(true, false)
+            ensureExecutablePermissions(destDir)
+            runCatching {
+                File(destDir, ".nux_perm_v2").writeText("1.0.4")
             }
 
             if (!isRuntimeInstalled(context, runtimeName)) {
@@ -191,7 +223,10 @@ object JavaRuntimeManager {
                                 out.write(buffer, 0, len)
                             }
                         }
-                        if (cleanName.startsWith("bin/") || cleanName.endsWith(".so")) {
+                        if (cleanName.startsWith("bin/") || cleanName.endsWith(".so") || cleanName.contains(".so.")) {
+                            try {
+                                Os.chmod(targetFile.absolutePath, 493) // 0755
+                            } catch (_: Throwable) {}
                             targetFile.setExecutable(true, false)
                             targetFile.setReadable(true, false)
                         }

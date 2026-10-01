@@ -73,6 +73,11 @@ fun NuxAddInstanceDialog(
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(VersionCategory.RELEASE) }
 
+    var showPremiumDialog by remember { mutableStateOf(false) }
+    var premiumInitialPrompt by remember { mutableStateOf<String?>(null) }
+
+    val launcherUser by com.israadev.nuxlauncher.core.account.AccountManager.launcherUser.collectAsState()
+
     LaunchedEffect(Unit) {
         val result = MojangManifestService.getVersionManifest()
         val manifest = result.getOrNull()
@@ -119,10 +124,10 @@ fun NuxAddInstanceDialog(
 
     NuxDialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.fillMaxWidth(0.95f),
+        modifier = Modifier.fillMaxWidth(0.92f),
         fillMaxHeight = true
     ) {
-        // Outer Shell Container
+        // Outer Shell Container (Compact & space-efficient)
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -134,46 +139,38 @@ fun NuxAddInstanceDialog(
                         )
                     )
                 )
-                .padding(14.dp)
+                .padding(10.dp)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // Top Header Bar
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 10.dp),
+                        .padding(bottom = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .background(NuxColors.ForestGreen, CircleShape)
+                    Column {
+                        Text(
+                            text = "INSTANCE ARCHITECT",
+                            color = Color(0xFF71717A),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 8.sp,
+                            letterSpacing = 1.sp
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "INSTANCE ARCHITECT",
-                                color = Color(0xFF71717A),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 9.sp,
-                                letterSpacing = 1.2.sp
-                            )
-                            Text(
-                                text = "Buat Instance Baru",
-                                color = Color.White,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 16.sp,
-                                letterSpacing = (-0.3).sp
-                            )
-                        }
+                        Text(
+                            text = "Buat Instance Baru",
+                            color = Color.White,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp,
+                            letterSpacing = (-0.3).sp
+                        )
                     }
 
                     // Close Button
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(26.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF1E222D))
                             .border(1.dp, Color(0x33FFFFFF), CircleShape)
@@ -184,7 +181,7 @@ fun NuxAddInstanceDialog(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
                             tint = Color(0xFFA1A1AA),
-                            modifier = Modifier.size(14.dp)
+                            modifier = Modifier.size(13.dp)
                         )
                     }
                 }
@@ -194,13 +191,13 @@ fun NuxAddInstanceDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // ==========================================
                     // LEFT COLUMN: Instance Configurations
                     // ==========================================
-                    val leftBezelShape = RoundedCornerShape(16.dp)
-                    val innerBezelShape = RoundedCornerShape(12.dp)
+                    val leftBezelShape = RoundedCornerShape(12.dp)
+                    val innerBezelShape = RoundedCornerShape(9.dp)
 
                     Box(
                         modifier = Modifier
@@ -209,7 +206,7 @@ fun NuxAddInstanceDialog(
                             .clip(leftBezelShape)
                             .background(Color(0xFF11141C))
                             .border(1.dp, Color(0x1FFFFFFF), leftBezelShape)
-                            .padding(8.dp)
+                            .padding(6.dp)
                     ) {
                         Column(
                             modifier = Modifier.fillMaxSize(),
@@ -220,40 +217,40 @@ fun NuxAddInstanceDialog(
                                     .weight(1f)
                                     .fillMaxWidth()
                                     .verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                // 1. Nama Instance Box (Double-Bezel Inner Core)
+                                // 1. Nama Instance Box
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(innerBezelShape)
                                         .background(Color(0xFF181C26))
                                         .border(1.dp, Color(0x1AFFFFFF), innerBezelShape)
-                                        .padding(10.dp)
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
                                 ) {
                                     Text(
                                         text = "NAMA INSTANCE",
                                         color = Color(0xFFA1A1AA),
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 9.5.sp,
+                                        fontSize = 8.5.sp,
                                         letterSpacing = 0.8.sp
                                     )
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(38.dp)
-                                            .clip(RoundedCornerShape(8.dp))
+                                            .height(30.dp)
+                                            .clip(RoundedCornerShape(6.dp))
                                             .background(Color(0xFF0D0F15))
-                                            .border(1.dp, Color(0x2EFFFFFF), RoundedCornerShape(8.dp))
-                                            .padding(horizontal = 10.dp),
+                                            .border(1.dp, Color(0x2EFFFFFF), RoundedCornerShape(6.dp))
+                                            .padding(horizontal = 8.dp),
                                         contentAlignment = Alignment.CenterStart
                                     ) {
                                         if (instanceName.isEmpty()) {
                                             Text(
                                                 text = "Default: $selectedVersion ${selectedLoader.replaceFirstChar { it.uppercase() }}",
                                                 color = Color(0xFF52525B),
-                                                fontSize = 11.5.sp,
+                                                fontSize = 11.sp,
                                                 fontWeight = FontWeight.Normal
                                             )
                                         }
@@ -263,7 +260,7 @@ fun NuxAddInstanceDialog(
                                             singleLine = true,
                                             textStyle = TextStyle(
                                                 color = Color.White,
-                                                fontSize = 12.sp,
+                                                fontSize = 11.5.sp,
                                                 fontWeight = FontWeight.SemiBold
                                             ),
                                             cursorBrush = SolidColor(NuxColors.ForestGreen),
@@ -279,19 +276,19 @@ fun NuxAddInstanceDialog(
                                         .clip(innerBezelShape)
                                         .background(Color(0xFF181C26))
                                         .border(1.dp, Color(0x1AFFFFFF), innerBezelShape)
-                                        .padding(10.dp)
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
                                 ) {
                                     Text(
                                         text = "MOD LOADER ENGINE",
                                         color = Color(0xFFA1A1AA),
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 9.5.sp,
+                                        fontSize = 8.5.sp,
                                         letterSpacing = 0.8.sp
                                     )
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
                                         listOf("vanilla" to "Vanilla", "fabric" to "Fabric").forEach { (type, label) ->
                                             val isSelected = selectedLoader == type
@@ -307,10 +304,10 @@ fun NuxAddInstanceDialog(
                                             Box(
                                                 modifier = Modifier
                                                     .weight(1f)
-                                                    .height(36.dp)
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(btnBg, RoundedCornerShape(8.dp))
-                                                    .border(1.dp, btnBorder, RoundedCornerShape(8.dp))
+                                                    .height(30.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(btnBg, RoundedCornerShape(6.dp))
+                                                    .border(1.dp, btnBorder, RoundedCornerShape(6.dp))
                                                     .clickable { selectedLoader = type },
                                                 contentAlignment = Alignment.Center
                                             ) {
@@ -318,16 +315,16 @@ fun NuxAddInstanceDialog(
                                                     if (isSelected) {
                                                         Box(
                                                             modifier = Modifier
-                                                                .size(6.dp)
+                                                                .size(5.dp)
                                                                 .background(NuxColors.MintGreen, CircleShape)
                                                         )
-                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Spacer(modifier = Modifier.width(5.dp))
                                                     }
                                                     Text(
                                                         text = label,
                                                         color = if (isSelected) NuxColors.MintGreen else Color(0xFFA1A1AA),
                                                         fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
-                                                        fontSize = 11.5.sp
+                                                        fontSize = 10.5.sp
                                                     )
                                                 }
                                             }
@@ -336,45 +333,45 @@ fun NuxAddInstanceDialog(
 
                                     // Fabric Loader Version Picker
                                     if (selectedLoader == "fabric") {
-                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Spacer(modifier = Modifier.height(6.dp))
                                         var showFabricMenu by remember { mutableStateOf(false) }
 
                                         Box(modifier = Modifier.fillMaxWidth()) {
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .height(36.dp)
-                                                    .clip(RoundedCornerShape(8.dp))
-                                                    .background(Color(0xFF0D0F15), RoundedCornerShape(8.dp))
-                                                    .border(1.dp, Color(0x2EFFFFFF), RoundedCornerShape(8.dp))
+                                                    .height(30.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(Color(0xFF0D0F15), RoundedCornerShape(6.dp))
+                                                    .border(1.dp, Color(0x2EFFFFFF), RoundedCornerShape(6.dp))
                                                     .clickable {
                                                         if (!isLoadingFabric && fabricVersionsList.isNotEmpty()) {
                                                             showFabricMenu = true
                                                         }
                                                     }
-                                                    .padding(horizontal = 10.dp),
+                                                    .padding(horizontal = 8.dp),
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 if (isLoadingFabric) {
                                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                                         CircularProgressIndicator(
-                                                            modifier = Modifier.size(12.dp),
+                                                            modifier = Modifier.size(11.dp),
                                                             strokeWidth = 1.5.dp,
                                                             color = NuxColors.ForestGreen
                                                         )
-                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Spacer(modifier = Modifier.width(5.dp))
                                                         Text(
                                                             text = "Memuat loader Fabric...",
                                                             color = Color(0xFFA1A1AA),
-                                                            fontSize = 11.sp
+                                                            fontSize = 10.sp
                                                         )
                                                     }
                                                 } else if (fabricVersionsList.isEmpty()) {
                                                     Text(
                                                         text = "⚠️ Fabric belum tersedia untuk $selectedVersion",
                                                         color = Color(0xFFFB7185),
-                                                        fontSize = 10.5.sp,
+                                                        fontSize = 9.5.sp,
                                                         fontWeight = FontWeight.Medium
                                                     )
                                                 } else {
@@ -383,13 +380,13 @@ fun NuxAddInstanceDialog(
                                                             text = "Fabric $selectedFabricVersion",
                                                             color = Color.White,
                                                             fontWeight = FontWeight.Bold,
-                                                            fontSize = 11.5.sp
+                                                            fontSize = 10.5.sp
                                                         )
                                                     }
                                                     Text(
                                                         text = "▼",
                                                         color = Color(0xFF71717A),
-                                                        fontSize = 9.sp
+                                                        fontSize = 8.sp
                                                     )
                                                 }
                                             }
@@ -414,7 +411,7 @@ fun NuxAddInstanceDialog(
                                                                 Text(
                                                                     text = ver,
                                                                     fontWeight = if (isPicked) FontWeight.Black else FontWeight.Normal,
-                                                                    fontSize = 11.5.sp,
+                                                                    fontSize = 11.sp,
                                                                     color = if (isPicked) NuxColors.MintGreen else Color.White
                                                                 )
                                                                 if (isPicked) {
@@ -422,7 +419,7 @@ fun NuxAddInstanceDialog(
                                                                         imageVector = Icons.Default.Check,
                                                                         contentDescription = null,
                                                                         tint = NuxColors.MintGreen,
-                                                                        modifier = Modifier.size(14.dp)
+                                                                        modifier = Modifier.size(13.dp)
                                                                     )
                                                                 }
                                                             }
@@ -445,7 +442,7 @@ fun NuxAddInstanceDialog(
                                         .clip(innerBezelShape)
                                         .background(Color(0xFF0F221B))
                                         .border(1.dp, NuxColors.ForestGreen.copy(alpha = 0.4f), innerBezelShape)
-                                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                                        .padding(horizontal = 8.dp, vertical = 5.dp),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
@@ -454,21 +451,21 @@ fun NuxAddInstanceDialog(
                                             text = "SPESIFIKASI TARGET",
                                             color = NuxColors.MintGreen,
                                             fontWeight = FontWeight.Bold,
-                                            fontSize = 8.5.sp,
+                                            fontSize = 7.5.sp,
                                             letterSpacing = 0.8.sp
                                         )
-                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Spacer(modifier = Modifier.height(1.dp))
                                         Text(
                                             text = "Minecraft $selectedVersion",
                                             color = Color.White,
                                             fontWeight = FontWeight.Black,
-                                            fontSize = 12.sp
+                                            fontSize = 11.sp
                                         )
                                     }
 
                                     Box(
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
+                                            .clip(RoundedCornerShape(5.dp))
                                             .background(
                                                 if (selectedLoader == "fabric") Color(0xFF8B5CF6).copy(alpha = 0.2f)
                                                 else Color(0xFF10B981).copy(alpha = 0.2f)
@@ -477,15 +474,15 @@ fun NuxAddInstanceDialog(
                                                 1.dp,
                                                 if (selectedLoader == "fabric") Color(0xFF8B5CF6).copy(alpha = 0.5f)
                                                 else Color(0xFF10B981).copy(alpha = 0.5f),
-                                                RoundedCornerShape(6.dp)
+                                                RoundedCornerShape(5.dp)
                                             )
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                            .padding(horizontal = 7.dp, vertical = 3.dp)
                                     ) {
                                         Text(
                                             text = if (selectedLoader == "fabric") "FABRIC" else "VANILLA",
                                             color = if (selectedLoader == "fabric") Color(0xFFA78BFA) else NuxColors.MintGreen,
                                             fontWeight = FontWeight.Black,
-                                            fontSize = 9.sp
+                                            fontSize = 8.5.sp
                                         )
                                     }
                                 }
@@ -493,12 +490,12 @@ fun NuxAddInstanceDialog(
 
                             // 4. Island CTA Button (Bottom Anchored)
                             val canCreate = !(selectedLoader == "fabric" && (isLoadingFabric || selectedFabricVersion.isBlank()))
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(42.dp)
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .height(34.dp)
+                                    .clip(RoundedCornerShape(10.dp))
                                     .background(
                                         if (canCreate) Brush.horizontalGradient(
                                             listOf(Color(0xFF059669), Color(0xFF10B981))
@@ -509,7 +506,7 @@ fun NuxAddInstanceDialog(
                                     .border(
                                         1.dp,
                                         if (canCreate) Color(0x6634D399) else Color(0x1AFFFFFF),
-                                        RoundedCornerShape(12.dp)
+                                        RoundedCornerShape(10.dp)
                                     )
                                     .clickable(enabled = canCreate) {
                                         val defaultName = "$selectedVersion ${selectedLoader.replaceFirstChar { it.uppercase() }}"
@@ -524,7 +521,7 @@ fun NuxAddInstanceDialog(
                                         )
                                         onInstanceCreated(newInstance)
                                     }
-                                    .padding(horizontal = 14.dp),
+                                    .padding(horizontal = 10.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Row(
@@ -540,14 +537,14 @@ fun NuxAddInstanceDialog(
                                         },
                                         color = if (canCreate) Color.White else Color(0xFF71717A),
                                         fontWeight = FontWeight.Black,
-                                        fontSize = 12.sp,
+                                        fontSize = 11.sp,
                                         letterSpacing = 0.2.sp
                                     )
 
                                     // Nested Icon Pill
                                     Box(
                                         modifier = Modifier
-                                            .size(24.dp)
+                                            .size(20.dp)
                                             .clip(CircleShape)
                                             .background(if (canCreate) Color.White.copy(alpha = 0.2f) else Color.Transparent),
                                         contentAlignment = Alignment.Center
@@ -556,7 +553,7 @@ fun NuxAddInstanceDialog(
                                             imageVector = Icons.Default.ArrowForward,
                                             contentDescription = null,
                                             tint = if (canCreate) Color.White else Color(0xFF71717A),
-                                            modifier = Modifier.size(13.dp)
+                                            modifier = Modifier.size(11.dp)
                                         )
                                     }
                                 }
@@ -574,7 +571,7 @@ fun NuxAddInstanceDialog(
                             .clip(leftBezelShape)
                             .background(Color(0xFF11141C))
                             .border(1.dp, Color(0x1FFFFFFF), leftBezelShape)
-                            .padding(8.dp)
+                            .padding(6.dp)
                     ) {
                         Column(modifier = Modifier.fillMaxSize()) {
                             // Category Filter Bar (Pill Tabs like Zalith)
@@ -582,7 +579,7 @@ fun NuxAddInstanceDialog(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 VersionCategory.values().forEach { category ->
@@ -598,33 +595,40 @@ fun NuxAddInstanceDialog(
 
                                     Box(
                                         modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
+                                            .clip(RoundedCornerShape(6.dp))
                                             .background(pillBg)
-                                            .border(1.dp, pillBorder, RoundedCornerShape(8.dp))
-                                            .clickable { selectedCategory = category }
-                                            .padding(horizontal = 9.dp, vertical = 5.dp)
+                                            .border(1.dp, pillBorder, RoundedCornerShape(6.dp))
+                                            .clickable {
+                                                if (category != VersionCategory.RELEASE && launcherUser?.isActivated != true) {
+                                                    premiumInitialPrompt = "Akses versi Snapshot dan build Eksperimental (Beta & Alpha) hanya tersedia untuk member NUX Premium. Pengguna Free dapat memainkan seluruh versi Release stabil."
+                                                    showPremiumDialog = true
+                                                } else {
+                                                    selectedCategory = category
+                                                }
+                                            }
+                                            .padding(horizontal = 7.dp, vertical = 3.5.dp)
                                     ) {
                                         Text(
                                             text = category.label,
                                             color = if (isCatSelected) category.badgeText else Color(0xFFA1A1AA),
                                             fontWeight = if (isCatSelected) FontWeight.Black else FontWeight.SemiBold,
-                                            fontSize = 10.sp
+                                            fontSize = 9.sp
                                         )
                                     }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
 
                             // Search Field
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(34.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .height(28.dp)
+                                    .clip(RoundedCornerShape(6.dp))
                                     .background(Color(0xFF0D0F15))
-                                    .border(1.dp, Color(0x26FFFFFF), RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 9.dp),
+                                    .border(1.dp, Color(0x26FFFFFF), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 7.dp),
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 Row(
@@ -635,16 +639,16 @@ fun NuxAddInstanceDialog(
                                         imageVector = Icons.Default.Search,
                                         contentDescription = "Search",
                                         tint = Color(0xFF71717A),
-                                        modifier = Modifier.size(13.dp)
+                                        modifier = Modifier.size(12.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(5.dp))
                                     BasicTextField(
                                         value = searchQuery,
                                         onValueChange = { searchQuery = it },
                                         singleLine = true,
                                         textStyle = TextStyle(
                                             color = Color.White,
-                                            fontSize = 11.5.sp,
+                                            fontSize = 10.5.sp,
                                             fontWeight = FontWeight.Medium
                                         ),
                                         cursorBrush = SolidColor(NuxColors.ForestGreen),
@@ -654,7 +658,7 @@ fun NuxAddInstanceDialog(
                                                 Text(
                                                     text = "Cari versi (${selectedCategory.label})...",
                                                     color = Color(0xFF52525B),
-                                                    fontSize = 11.sp
+                                                    fontSize = 10.sp
                                                 )
                                             }
                                             innerTextField()
@@ -666,34 +670,34 @@ fun NuxAddInstanceDialog(
                                             contentDescription = "Clear",
                                             tint = Color(0xFFA1A1AA),
                                             modifier = Modifier
-                                                .size(14.dp)
+                                                .size(13.dp)
                                                 .clickable { searchQuery = "" }
                                         )
                                     }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
 
                             // Version Count Header
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                                    .padding(horizontal = 2.dp, vertical = 1.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = "DAFTAR VERSI",
                                     color = Color(0xFF71717A),
-                                    fontSize = 8.5.sp,
+                                    fontSize = 8.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.8.sp
                                 )
                                 Text(
                                     text = "${filteredVersions.size} versi ditemukan",
                                     color = Color(0xFF52525B),
-                                    fontSize = 8.5.sp,
+                                    fontSize = 8.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
@@ -706,21 +710,21 @@ fun NuxAddInstanceDialog(
                                     .clip(innerBezelShape)
                                     .background(Color(0xFF0D0F15))
                                     .border(1.dp, Color(0x1AFFFFFF), innerBezelShape)
-                                    .padding(4.dp)
+                                    .padding(3.dp)
                             ) {
                                 if (isLoadingVersions) {
                                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                             CircularProgressIndicator(
                                                 color = NuxColors.ForestGreen,
-                                                modifier = Modifier.size(22.dp),
+                                                modifier = Modifier.size(20.dp),
                                                 strokeWidth = 2.dp
                                             )
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Spacer(modifier = Modifier.height(6.dp))
                                             Text(
                                                 text = "Memuat manifest Mojang...",
                                                 color = Color(0xFF71717A),
-                                                fontSize = 10.5.sp
+                                                fontSize = 10.sp
                                             )
                                         }
                                     }
@@ -729,18 +733,18 @@ fun NuxAddInstanceDialog(
                                         Text(
                                             text = "Tidak ada versi yang cocok",
                                             color = Color(0xFF71717A),
-                                            fontSize = 11.sp,
+                                            fontSize = 10.5.sp,
                                             fontWeight = FontWeight.Medium
                                         )
                                     }
                                 } else {
                                     LazyColumn(
                                         modifier = Modifier.fillMaxSize(),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        verticalArrangement = Arrangement.spacedBy(3.dp)
                                     ) {
                                         items(filteredVersions, key = { it.id }) { item ->
                                             val isSelected = item.id == selectedVersion
-                                            val itemShape = RoundedCornerShape(8.dp)
+                                            val itemShape = RoundedCornerShape(6.dp)
 
                                             // Determine Badge Color & Label based on item type
                                             val (badgeText, badgeBg, badgeTextColor) = when {
@@ -766,7 +770,7 @@ fun NuxAddInstanceDialog(
                                                         shape = itemShape
                                                     )
                                                     .clickable { selectedVersion = item.id }
-                                                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                                                    .padding(horizontal = 8.dp, vertical = 4.5.dp),
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
@@ -775,20 +779,20 @@ fun NuxAddInstanceDialog(
                                                         text = item.id,
                                                         color = if (isSelected) Color.White else Color(0xFFE4E4E7),
                                                         fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
-                                                        fontSize = 12.sp
+                                                        fontSize = 11.sp
                                                     )
-                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Spacer(modifier = Modifier.width(5.dp))
                                                     Box(
                                                         modifier = Modifier
-                                                            .clip(RoundedCornerShape(4.dp))
+                                                            .clip(RoundedCornerShape(3.dp))
                                                             .background(badgeBg)
-                                                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                                                            .padding(horizontal = 4.dp, vertical = 1.5.dp)
                                                     ) {
                                                         Text(
                                                             text = badgeText,
                                                             color = badgeTextColor,
                                                             fontWeight = FontWeight.Bold,
-                                                            fontSize = 8.5.sp
+                                                            fontSize = 7.5.sp
                                                         )
                                                     }
                                                 }
@@ -796,7 +800,7 @@ fun NuxAddInstanceDialog(
                                                 if (isSelected) {
                                                     Box(
                                                         modifier = Modifier
-                                                            .size(18.dp)
+                                                            .size(16.dp)
                                                             .background(NuxColors.ForestGreen, CircleShape),
                                                         contentAlignment = Alignment.Center
                                                     ) {
@@ -804,7 +808,7 @@ fun NuxAddInstanceDialog(
                                                             imageVector = Icons.Default.Check,
                                                             contentDescription = "Selected",
                                                             tint = Color(0xFF09090B),
-                                                            modifier = Modifier.size(12.dp)
+                                                            modifier = Modifier.size(11.dp)
                                                         )
                                                     }
                                                 }
@@ -818,5 +822,15 @@ fun NuxAddInstanceDialog(
                 }
             }
         }
+    }
+
+    if (showPremiumDialog) {
+        NuxPremiumDialog(
+            initialPrompt = premiumInitialPrompt,
+            onDismissRequest = {
+                showPremiumDialog = false
+                premiumInitialPrompt = null
+            }
+        )
     }
 }

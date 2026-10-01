@@ -18,7 +18,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -47,6 +49,7 @@ import com.israadev.nuxlauncher.core.renderer.NuxRendererRegistry
 import com.israadev.nuxlauncher.core.renderer.NuxRendererInfo
 import com.israadev.nuxlauncher.ui.dialogs.NuxRendererWarningDialog
 import com.israadev.nuxlauncher.ui.dialogs.NuxAddInstanceDialog
+import com.israadev.nuxlauncher.ui.dialogs.NuxEditInstanceDialog
 import com.israadev.nuxlauncher.ui.dialogs.NuxCrashDialog
 import com.israadev.nuxlauncher.ui.dialogs.NuxDeleteInstanceDialog
 import com.israadev.nuxlauncher.ui.dialogs.NuxDownloadProgressDialog
@@ -55,6 +58,8 @@ import com.israadev.nuxlauncher.core.update.AndroidUpdateInfo
 import com.israadev.nuxlauncher.core.update.UpdateManager
 import com.israadev.nuxlauncher.core.mods.NuxAddonImportManager
 import com.israadev.nuxlauncher.ui.dialogs.NuxAddonImportDialog
+import com.israadev.nuxlauncher.ui.dialogs.NuxAboutDialog
+import com.israadev.nuxlauncher.ui.dialogs.NuxPremiumDialog
 import com.israadev.nuxlauncher.ui.theme.NuxColors
 import com.israadev.nuxlauncher.ui.theme.resp
 import com.israadev.nuxlauncher.ui.theme.LocalNuxScale
@@ -76,12 +81,25 @@ fun DashboardScreen() {
     val launcherSettings by SettingsManager.settings.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var showEditInstanceDialog by remember { mutableStateOf(false) }
     var instanceToDelete by remember { mutableStateOf<com.israadev.nuxlauncher.core.models.Instance?>(null) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var updateDialogInfo by remember { mutableStateOf<AndroidUpdateInfo?>(null) }
     var pendingLaunchInstance by remember { mutableStateOf<com.israadev.nuxlauncher.core.models.Instance?>(null) }
     var unsupportedRendererInfo by remember { mutableStateOf<NuxRendererInfo?>(null) }
+    var showAboutDialog by remember { mutableStateOf(false) }
+    var showPremiumDialog by remember { mutableStateOf(false) }
+    var premiumInitialPrompt by remember { mutableStateOf<String?>(null) }
     val pendingImport by NuxAddonImportManager.pendingImport.collectAsState()
+
+    val handleRequestCreateInstance = {
+        if (instances.size >= 3 && launcherUser?.isActivated != true) {
+            premiumInitialPrompt = "Batas akun Free adalah maksimal 3 instance. Upgrade ke NUX Premium untuk membuat instance tanpa batas!"
+            showPremiumDialog = true
+        } else {
+            showAddDialog = true
+        }
+    }
 
     // Auto check update every time launcher is opened
     LaunchedEffect(Unit) {
@@ -167,59 +185,140 @@ fun DashboardScreen() {
                             .fillMaxHeight()
                             .padding(start = (12.dp).resp(), end = (12.dp).resp(), top = (6.dp).resp(), bottom = (6.dp).resp())
                     ) {
-                        // TOP BAR (Minimalist: No JAVA EDITION badge box, tight vertical padding)
-                        Row(
+                        // TOP BAR (With Unofficial Modified Version label in the center)
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = (5.dp).resp()),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(bottom = (5.dp).resp())
                         ) {
                             Text(
                                 text = "DASHBOARD",
                                 color = Color.White,
                                 fontWeight = FontWeight.Black,
                                 fontSize = (13.5.sp).resp(),
-                                letterSpacing = (0.7.sp).resp()
+                                letterSpacing = (0.7.sp).resp(),
+                                modifier = Modifier.align(Alignment.CenterStart)
                             )
 
-                            // Compact Profile Indicator
-                            val userShape = RoundedCornerShape((8.dp).resp())
-                            Row(
+                            // Center: Unofficial Modified Version Label (Zalith & GPL-3.0 Compliance, Clickable to About)
+                            Box(
                                 modifier = Modifier
-                                    .clip(userShape)
-                                    .background(NuxColors.SurfaceElevated, userShape)
-                                    .border(1.dp, NuxColors.CardBorder, userShape)
-                                    .clickable { currentTab = "settings" }
-                                    .padding(horizontal = (8.dp).resp(), vertical = (3.5.dp).resp()),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                val photo = launcherUser?.photoURL
-                                if (!photo.isNullOrBlank()) {
-                                    NuxNetworkImage(
-                                        model = photo,
-                                        contentDescription = "Profile",
-                                        fallbackInitials = launcherUser?.username ?: "User",
-                                        modifier = Modifier.size((15.dp).resp()),
-                                        shape = CircleShape
+                                    .align(Alignment.Center)
+                                    .background(
+                                        Color(0x1AFFFFFF),
+                                        RoundedCornerShape((6.dp).resp())
                                     )
-                                } else {
+                                    .border(
+                                        1.dp,
+                                        Color(0x26FFFFFF),
+                                        RoundedCornerShape((6.dp).resp())
+                                    )
+                                    .clickable { showAboutDialog = true }
+                                    .padding(horizontal = (8.dp).resp(), vertical = (3.dp).resp()),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy((5.dp).resp())
+                                ) {
                                     Box(
                                         modifier = Modifier
-                                            .size((6.5.dp).resp())
-                                            .background(
-                                                if (launcherUser?.isActivated == true) NuxColors.ForestGreen else NuxColors.Amber,
-                                                CircleShape
-                                            )
+                                            .size((5.dp).resp())
+                                            .background(NuxColors.Amber, CircleShape)
+                                    )
+                                    Text(
+                                        text = "UNOFFICIAL MODIFIED VERSION",
+                                        color = NuxColors.GrayNeutral,
+                                        fontSize = (8.sp).resp(),
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = (0.6.sp).resp()
+                                    )
+                                    Spacer(modifier = Modifier.width((2.dp).resp()))
+                                    Icon(
+                                        imageVector = Icons.Outlined.Info,
+                                        contentDescription = "Tentang & Lisensi",
+                                        tint = NuxColors.GrayNeutral,
+                                        modifier = Modifier.size((11.dp).resp())
                                     )
                                 }
-                                Spacer(modifier = Modifier.width((5.dp).resp()))
-                                Text(
-                                    text = launcherUser?.username ?: "PROFIL",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = (10.5.sp).resp()
-                                )
+                            }
+
+                            // Compact Profile & VIP Indicator
+                            Row(
+                                modifier = Modifier.align(Alignment.CenterEnd),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy((6.dp).resp())
+                            ) {
+                                // VIP / Upgrade Badge
+                                val isVip = launcherUser?.isActivated == true
+                                val vipShape = RoundedCornerShape((7.dp).resp())
+                                Box(
+                                    modifier = Modifier
+                                        .clip(vipShape)
+                                        .background(
+                                            if (isVip) Color(0xFFF59E0B).copy(alpha = 0.18f) else Color(0x1AFFFFFF),
+                                            vipShape
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (isVip) Color(0xFFF59E0B) else Color(0x33FFFFFF),
+                                            vipShape
+                                        )
+                                        .clickable {
+                                            premiumInitialPrompt = if (isVip) "Status NUX VIP Anda saat ini aktif!" else null
+                                            showPremiumDialog = true
+                                        }
+                                        .padding(horizontal = (7.dp).resp(), vertical = (3.dp).resp()),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = if (isVip) "👑 VIP" else "★ UPGRADE",
+                                            color = if (isVip) Color(0xFFFBBF24) else Color(0xFF38BDF8),
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = (8.5.sp).resp(),
+                                            letterSpacing = (0.5.sp).resp()
+                                        )
+                                    }
+                                }
+
+                                val userShape = RoundedCornerShape((8.dp).resp())
+                                Row(
+                                    modifier = Modifier
+                                        .clip(userShape)
+                                        .background(NuxColors.SurfaceElevated, userShape)
+                                        .border(1.dp, NuxColors.CardBorder, userShape)
+                                        .clickable { currentTab = "settings" }
+                                        .padding(horizontal = (8.dp).resp(), vertical = (3.5.dp).resp()),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val photo = launcherUser?.photoURL
+                                    if (!photo.isNullOrBlank()) {
+                                        NuxNetworkImage(
+                                            model = photo,
+                                            contentDescription = "Profile",
+                                            fallbackInitials = launcherUser?.username ?: "User",
+                                            modifier = Modifier.size((15.dp).resp()),
+                                            shape = CircleShape
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .size((6.5.dp).resp())
+                                                .background(
+                                                    if (launcherUser?.isActivated == true) NuxColors.ForestGreen else NuxColors.Amber,
+                                                    CircleShape
+                                                )
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width((5.dp).resp()))
+                                    Text(
+                                        text = launcherUser?.username ?: "PROFIL",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = (10.5.sp).resp()
+                                    )
+                                }
                             }
                         }
 
@@ -503,7 +602,7 @@ fun DashboardScreen() {
                                             Spacer(modifier = Modifier.width(12.dp))
 
                                             NuxButton(
-                                                onClick = { showAddDialog = true },
+                                                onClick = { handleRequestCreateInstance() },
                                                 backgroundColor = NuxColors.ForestGreen,
                                                 contentColor = Color.White,
                                                 cornerRadius = 12.dp,
@@ -576,15 +675,27 @@ fun DashboardScreen() {
                                             .fillMaxHeight()
                                     )
 
-                                    // Card 3: RESOURCE MONITOR
-                                    val activeRuntimeName = selectedInstance?.let { JavaRuntimeManager.getRecommendedRuntime(it.mcVersion) }
-                                    val activeJreDisplay = if (activeRuntimeName != null) JavaRuntimeManager.getRuntimeDisplayName(activeRuntimeName) else "Auto (8-25)"
+                                    // Card 3: INSTANCE EDIT
+                                    val activeRuntimeName = selectedInstance?.let {
+                                        if (it.javaRuntime != "auto") it.javaRuntime
+                                        else JavaRuntimeManager.getRecommendedRuntime(it.mcVersion)
+                                    }
+                                    val activeJreDisplay = if (activeRuntimeName != null) {
+                                        if (selectedInstance?.javaRuntime == "auto") "Auto (${activeRuntimeName.replace("jre-", "Java ")})"
+                                        else activeRuntimeName.replace("jre-", "Java ")
+                                    } else "Auto Java"
                                     QuickActionCard(
-                                        title = "RESOURCE\nMONITOR",
-                                        description = "${launcherSettings.ramMb} MB · $activeJreDisplay",
-                                        icon = Icons.Outlined.BarChart,
-                                        accentColor = NuxColors.ForestGreen,
-                                        onClick = { currentTab = "settings" },
+                                        title = "INSTANCE\nEDIT",
+                                        description = selectedInstance?.let { "${it.name} · $activeJreDisplay" } ?: "Pilih instance",
+                                        icon = Icons.Outlined.Tune,
+                                        accentColor = NuxColors.MintGreen,
+                                        onClick = {
+                                            if (selectedInstance != null) {
+                                                showEditInstanceDialog = true
+                                            } else {
+                                                Toast.makeText(context, "Pilih instance terlebih dahulu", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
                                         modifier = Modifier
                                             .weight(1f)
                                             .fillMaxHeight()
@@ -646,7 +757,7 @@ fun DashboardScreen() {
                                                 .clip(addPillShape)
                                                 .background(Color(0xFF10B981).copy(alpha = 0.14f), addPillShape)
                                                 .border(1.dp, NuxColors.ForestGreen.copy(alpha = 0.45f), addPillShape)
-                                                .clickable { showAddDialog = true }
+                                                .clickable { handleRequestCreateInstance() }
                                                 .padding(horizontal = (8.dp).resp(), vertical = (3.5.dp).resp())
                                         ) {
                                             Text(
@@ -806,6 +917,23 @@ fun DashboardScreen() {
             )
         }
 
+        // Edit Instance Dialog
+        if (showEditInstanceDialog) {
+            selectedInstance?.let { inst ->
+                NuxEditInstanceDialog(
+                    instance = inst,
+                    onDismiss = { showEditInstanceDialog = false },
+                    onInstanceUpdated = { updated ->
+                        InstanceManager.updateInstance(context, updated)
+                    },
+                    onInstanceDeleted = { toDelete ->
+                        InstanceManager.deleteInstance(context, toDelete.id)
+                        Toast.makeText(context, "Instance ${toDelete.name} berhasil dihapus!", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+        }
+
         // Delete Instance Confirmation Dialog
         instanceToDelete?.let { inst ->
             NuxDeleteInstanceDialog(
@@ -876,6 +1004,24 @@ fun DashboardScreen() {
                 pendingImport = importItem,
                 onDismiss = {
                     NuxAddonImportManager.clearPendingImport()
+                }
+            )
+        }
+
+        // About & Open Source Licenses Dialog (GPL-3.0 & Zalith Compliance)
+        if (showAboutDialog) {
+            NuxAboutDialog(
+                onDismissRequest = { showAboutDialog = false }
+            )
+        }
+
+        // NUX Premium & Showcase Dialog (Fitur 1 - 7 Eksklusif)
+        if (showPremiumDialog) {
+            NuxPremiumDialog(
+                initialPrompt = premiumInitialPrompt,
+                onDismissRequest = {
+                    showPremiumDialog = false
+                    premiumInitialPrompt = null
                 }
             )
         }

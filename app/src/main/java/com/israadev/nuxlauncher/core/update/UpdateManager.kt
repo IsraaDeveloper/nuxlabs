@@ -43,7 +43,7 @@ object UpdateManager {
         try {
             val req = Request.Builder()
                 .url(UPDATE_ENDPOINT)
-                .header("User-Agent", "NuxLauncher-Android/1.0.3")
+                .header("User-Agent", "NuxLauncher-Android/1.0.4")
                 .get()
                 .build()
 
@@ -119,7 +119,7 @@ object UpdateManager {
                     context.packageManager.getPackageInfo(context.packageName, 0)
                 }
                 val localCode = PackageInfoCompat.getLongVersionCode(packageInfo)
-                val localVersionName = (packageInfo.versionName ?: "1.0.3").trim().removePrefix("v")
+                val localVersionName = (packageInfo.versionName ?: "1.0.4").trim().removePrefix("v")
 
                 val isNewerCode = remoteCode > localCode
                 val isNewerVer = compareVersions(remoteVersion, localVersionName) > 0

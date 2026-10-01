@@ -331,20 +331,23 @@ object AuthService {
     }
 
     /**
-     * 5. Reset Password Menggunakan Kode OTP
+     * 5. Kirim Link Reset Password Menggunakan Layanan Email Bawaan Firebase
      */
-    suspend fun resetPassword(email: String, code: String, newPassword: String): Result<String> {
+    suspend fun sendPasswordResetEmail(email: String): Result<String> {
         val payload = JsonObject().apply {
             addProperty("email", email.trim().lowercase())
-            addProperty("code", code.trim())
-            addProperty("newPassword", newPassword)
         }
 
         val result = postApi("/api/auth/reset-password", payload.toString())
         return result.mapCatching { json ->
             val obj = gson.fromJson(json, JsonObject::class.java)
-            obj.get("message")?.asString ?: "Kata sandi berhasil diperbarui. Silakan login."
+            obj.get("message")?.asString
+                ?: "Link reset kata sandi telah dikirim oleh Firebase ke email kamu. Silakan periksa Inbox atau folder SPAM kamu."
         }
+    }
+
+    suspend fun resetPassword(email: String, code: String = "", newPassword: String = ""): Result<String> {
+        return sendPasswordResetEmail(email)
     }
 
     /**
