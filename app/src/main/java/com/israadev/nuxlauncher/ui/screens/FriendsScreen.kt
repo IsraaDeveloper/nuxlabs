@@ -42,6 +42,7 @@ import com.israadev.nuxlauncher.core.account.AccountManager
 import com.israadev.nuxlauncher.core.social.*
 import com.israadev.nuxlauncher.ui.components.NuxBadge
 import com.israadev.nuxlauncher.ui.components.NuxNetworkImage
+import com.israadev.nuxlauncher.ui.components.NuxUserAvatar
 import com.israadev.nuxlauncher.ui.components.NuxUserBadge
 import com.israadev.nuxlauncher.ui.dialogs.NuxPremiumDialog
 import com.israadev.nuxlauncher.ui.theme.NuxColors
@@ -753,34 +754,20 @@ private fun FriendItem(
             .padding(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar + Status Dot
-        Box(
-            modifier = Modifier.size(32.dp),
-            contentAlignment = Alignment.BottomEnd
-        ) {
-            NuxNetworkImage(
-                model = friend.photoUrl.takeIf { it.isNotBlank() },
-                contentDescription = friend.username,
-                fallbackInitials = friend.username,
-                shape = RoundedCornerShape(6.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(6.dp))
-            )
-
-            val dotColor = when {
-                friend.isInGame -> Color(0xFF06B6D4) // Cyan (In Game)
-                friend.isOnline -> Color(0xFF10B981) // Green (Online)
-                else -> Color(0xFF71717A)            // Gray (Offline)
-            }
-            Box(
-                modifier = Modifier
-                    .size(9.dp)
-                    .clip(CircleShape)
-                    .background(dotColor)
-                    .border(1.2.dp, NuxColors.SurfaceElevated, CircleShape)
-            )
+        // Avatar + Status Dot + Platform Indicator
+        val dotColor = when {
+            friend.isInGame -> Color(0xFF06B6D4) // Cyan (In Game)
+            friend.isOnline -> Color(0xFF10B981) // Green (Online)
+            else -> Color(0xFF71717A)            // Gray (Offline)
         }
+        NuxUserAvatar(
+            photoUrl = friend.photoUrl,
+            username = friend.username,
+            avatarSize = 32.dp,
+            platform = friend.platform,
+            isAndroid = friend.isAndroid,
+            statusDotColor = dotColor
+        )
 
         Spacer(modifier = Modifier.width(8.dp))
 
@@ -945,14 +932,12 @@ private fun RequestReceivedItem(
             .padding(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        NuxNetworkImage(
-            model = friend.photoUrl.takeIf { it.isNotBlank() },
-            contentDescription = friend.username,
-            fallbackInitials = friend.username,
-            shape = RoundedCornerShape(6.dp),
-            modifier = Modifier
-                .size(30.dp)
-                .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(6.dp))
+        NuxUserAvatar(
+            photoUrl = friend.photoUrl,
+            username = friend.username,
+            avatarSize = 30.dp,
+            platform = friend.platform,
+            isAndroid = friend.isAndroid
         )
         Spacer(modifier = Modifier.width(8.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -997,14 +982,12 @@ private fun RequestSentItem(
             .padding(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        NuxNetworkImage(
-            model = friend.photoUrl.takeIf { it.isNotBlank() },
-            contentDescription = friend.username,
-            fallbackInitials = friend.username,
-            shape = RoundedCornerShape(6.dp),
-            modifier = Modifier
-                .size(30.dp)
-                .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(6.dp))
+        NuxUserAvatar(
+            photoUrl = friend.photoUrl,
+            username = friend.username,
+            avatarSize = 30.dp,
+            platform = friend.platform,
+            isAndroid = friend.isAndroid
         )
         Spacer(modifier = Modifier.width(8.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -1067,18 +1050,13 @@ private fun DirectChatView(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(28.dp)) {
-                    NuxNetworkImage(
-                        model = friend.photoUrl.takeIf { it.isNotBlank() },
-                        contentDescription = friend.username,
-                        fallbackInitials = friend.username,
-                        shape = RoundedCornerShape(6.dp),
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(6.dp))
-                    )
-                }
-
+                NuxUserAvatar(
+                    photoUrl = friend.photoUrl,
+                    username = friend.username,
+                    avatarSize = 28.dp,
+                    platform = friend.platform,
+                    isAndroid = friend.isAndroid
+                )
                 Spacer(modifier = Modifier.width(8.dp))
 
                 Column {
@@ -1830,12 +1808,13 @@ private fun ParticipantBadge(
                 .border(1.5.dp, if (isSpeaking) NuxColors.MintGreen else NuxColors.CardBorder, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            NuxNetworkImage(
-                model = participant.photoURL.takeIf { it.isNotBlank() },
-                contentDescription = participant.username,
-                fallbackInitials = participant.username,
+            NuxUserAvatar(
+                photoUrl = participant.photoURL,
+                username = participant.username,
+                avatarSize = 34.dp,
                 shape = CircleShape,
-                modifier = Modifier.fillMaxSize()
+                platform = participant.platform,
+                isAndroid = participant.isAndroid
             )
         }
 
@@ -2122,12 +2101,12 @@ private fun AddFriendDialog(
                                     .padding(horizontal = 8.dp, vertical = 5.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                NuxNetworkImage(
-                                    model = user.photoURL.takeIf { it.isNotBlank() },
-                                    contentDescription = user.username,
-                                    fallbackInitials = user.username,
-                                    shape = RoundedCornerShape(6.dp),
-                                    modifier = Modifier.size(26.dp)
+                                NuxUserAvatar(
+                                    photoUrl = user.photoURL,
+                                    username = user.username,
+                                    avatarSize = 26.dp,
+                                    platform = user.platform,
+                                    isAndroid = user.isAndroid
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column(modifier = Modifier.weight(1f)) {
