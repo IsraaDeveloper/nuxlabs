@@ -17,7 +17,10 @@ data class NuxUserProfile(
     val isAndroid: Boolean = true,
     val isVerified: Boolean = false,
     val isPremium: Boolean = false
-)
+) {
+    val isOnline: Boolean get() = status == "online" || status == "in_game"
+    val isInGame: Boolean get() = status == "in_game"
+}
 
 /**
  * Model Teman & Status Relasi Pertemanan (shared_social/friends/{uid})

@@ -77,6 +77,8 @@ fun FriendsScreen(
     val voiceMessages by NuxSocialManager.voiceMessages.collectAsState()
     val searchResults by NuxSocialManager.searchResults.collectAsState()
     val isSearching by NuxSocialManager.isSearching.collectAsState()
+    val onlineRecommendations by NuxSocialManager.onlineRecommendations.collectAsState()
+    val isLoadingRecommendations by NuxSocialManager.isLoadingRecommendations.collectAsState()
     val launcherUser by AccountManager.launcherUser.collectAsState()
 
     var selectedTab by remember { mutableStateOf("friends") } // "room_chat", "friends", "rooms", "requests"
@@ -97,6 +99,13 @@ fun FriendsScreen(
     var premiumInitialPrompt by remember { mutableStateOf<String?>(null) }
     var roomToJoinWithPassword by remember { mutableStateOf<NuxVoiceRoom?>(null) }
     var replyingToMessage by remember { mutableStateOf<NuxChatMessage?>(null) }
+
+    val openAddFriendDialogFresh: () -> Unit = {
+        scope.launch {
+            NuxSocialManager.fetchOnlineRecommendations(50)
+        }
+        showAddFriendDialog = true
+    }
 
     val acceptedFriends = remember(friends) { friends.filter { it.isAccepted } }
     val pendingReceived = remember(friends) { friends.filter { it.isPendingReceived } }
@@ -168,7 +177,7 @@ fun FriendsScreen(
                         .clip(RoundedCornerShape(6.dp))
                         .background(NuxColors.SurfaceElevated, RoundedCornerShape(6.dp))
                         .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(6.dp))
-                        .clickable { showAddFriendDialog = true }
+                        .clickable { openAddFriendDialogFresh() }
                         .padding(horizontal = 9.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -499,7 +508,7 @@ fun FriendsScreen(
                         EmptySocialHubView(
                             friendsCount = acceptedFriends.size,
                             roomsCount = voiceRooms.size,
-                            onOpenSearch = { showAddFriendDialog = true },
+                            onOpenSearch = { openAddFriendDialogFresh() },
                             onOpenCreateRoom = { showCreateRoomDialog = true }
                         )
                     }
@@ -512,13 +521,20 @@ fun FriendsScreen(
     // DIALOGS (Landscape-First Compact Design, Never Cut Off!)
     // =====================================================================
 
-    // 1. Dialog Tambah / Cari Teman
+    // 1. Dialog Tambah / Cari Teman (Fresh & Rekomendasi Online)
     if (showAddFriendDialog) {
         AddFriendDialog(
             searchResults = searchResults,
             isSearching = isSearching,
+            recommendations = onlineRecommendations,
+            isLoadingRecommendations = isLoadingRecommendations,
             friends = friends,
             onSearch = { q -> scope.launch { NuxSocialManager.searchUser(q) } },
+            onRefreshRecommendations = {
+                scope.launch {
+                    NuxSocialManager.fetchOnlineRecommendations(50)
+                }
+            },
             onSendRequest = { targetUid ->
                 scope.launch {
                     val res = NuxSocialManager.sendFriendRequest(targetUid)
@@ -2010,8 +2026,11 @@ private fun EmptyIndicator(
 private fun AddFriendDialog(
     searchResults: List<NuxUserProfile>,
     isSearching: Boolean,
+    recommendations: List<NuxUserProfile>,
+    isLoadingRecommendations: Boolean,
     friends: List<NuxFriend>,
     onSearch: (String) -> Unit,
+    onRefreshRecommendations: () -> Unit,
     onSendRequest: (String) -> Unit,
     onAcceptRequest: (String) -> Unit,
     onBlockUser: (String) -> Unit,
@@ -2021,6 +2040,9 @@ private fun AddFriendDialog(
 ) {
     var query by remember { mutableStateOf("") }
     var sentRequestUids by remember { mutableStateOf(setOf<String>()) }
+
+    val isShowingRecommendations = query.isBlank()
+    val activeList = if (isShowingRecommendations) recommendations else searchResults
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -2070,21 +2092,114 @@ private fun AddFriendDialog(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 100.dp, max = 160.dp)
+                    .heightIn(min = 120.dp, max = 195.dp)
             ) {
-                if (isSearching) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = NuxColors.ForestGreen, strokeWidth = 2.dp)
-                } else if (searchResults.isEmpty()) {
-                    Text(
-                        text = if (query.isBlank()) "Ketik nama teman di atas." else "Tidak ada pengguna ditemukan.",
-                        fontSize = 10.5.sp,
-                        color = NuxColors.GrayNeutral,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                if (!isShowingRecommendations && isSearching) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = NuxColors.ForestGreen, strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Mencari \"$query\"...",
+                            fontSize = 10.sp,
+                            color = NuxColors.GrayNeutral
+                        )
+                    }
+                } else if (isShowingRecommendations && isLoadingRecommendations && recommendations.isEmpty()) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = NuxColors.ForestGreen, strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Memuat rekomendasi online...",
+                            fontSize = 10.sp,
+                            color = NuxColors.GrayNeutral
+                        )
+                    }
+                } else if (activeList.isEmpty()) {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = if (isShowingRecommendations) "Belum ada rekomendasi pengguna online saat ini." else "Tidak ada pengguna ditemukan.",
+                            fontSize = 10.5.sp,
+                            color = NuxColors.GrayNeutral,
+                            textAlign = TextAlign.Center
+                        )
+                        if (isShowingRecommendations) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(NuxColors.SurfaceInput)
+                                    .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(6.dp))
+                                    .clickable { onRefreshRecommendations() }
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Text("Cari Ulang", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = NuxColors.MintGreen)
+                            }
+                        }
+                    }
                 } else {
                     val currentMyUid = AccountManager.launcherUser.value?.uid ?: ""
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        items(searchResults, key = { it.uid }) { user ->
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        if (isShowingRecommendations) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 5.dp, start = 2.dp, end = 2.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(7.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF10B981))
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text(
+                                        text = "REKOMENDASI ONLINE (${recommendations.size})",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = NuxColors.MintGreen
+                                    )
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .clickable { onRefreshRecommendations() }
+                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = "Acak ulang",
+                                        tint = NuxColors.MintGreen,
+                                        modifier = Modifier.size(11.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "Acak",
+                                        fontSize = 8.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = NuxColors.MintGreen
+                                    )
+                                }
+                            }
+                        }
+
+                        LazyColumn(
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            items(activeList, key = { it.uid }) { user ->
                             val isMe = user.uid == currentMyUid
                             val friendEntry = friends.find { it.uid == user.uid }
                             val isPendingSent = (friendEntry?.isPendingSent == true || sentRequestUids.contains(user.uid)) && friendEntry?.isAccepted != true
@@ -2101,12 +2216,19 @@ private fun AddFriendDialog(
                                     .padding(horizontal = 8.dp, vertical = 5.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                val dotColor = when {
+                                    user.status == "in_game" -> Color(0xFF06B6D4) // Cyan (In Game)
+                                    user.status == "online" -> Color(0xFF10B981)  // Green (Online)
+                                    else -> Color(0xFF71717A)                     // Gray (Offline)
+                                }
+
                                 NuxUserAvatar(
                                     photoUrl = user.photoURL,
                                     username = user.username,
                                     avatarSize = 26.dp,
                                     platform = user.platform,
-                                    isAndroid = user.isAndroid
+                                    isAndroid = user.isAndroid,
+                                    statusDotColor = dotColor
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column(modifier = Modifier.weight(1f)) {
@@ -2115,7 +2237,20 @@ private fun AddFriendDialog(
                                         Spacer(modifier = Modifier.width(3.dp))
                                         NuxUserBadge(isVerified = user.isVerified, isPremium = user.isPremium, size = 10.dp)
                                     }
-                                    Text(user.platform.uppercase(), fontSize = 8.5.sp, color = NuxColors.GrayNeutral)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        val statusText = when {
+                                            user.status == "in_game" -> "IN-GAME"
+                                            user.status == "online" -> "ONLINE"
+                                            else -> "OFFLINE"
+                                        }
+                                        val statusTextColor = when {
+                                            user.status == "in_game" -> Color(0xFF06B6D4)
+                                            user.status == "online" -> Color(0xFF10B981)
+                                            else -> NuxColors.GrayNeutral
+                                        }
+                                        Text(statusText, fontSize = 8.sp, fontWeight = FontWeight.Bold, color = statusTextColor)
+                                        Text(" • ${user.platform.uppercase()}", fontSize = 8.sp, color = NuxColors.GrayNeutral)
+                                    }
                                 }
 
                                 // Action Area
@@ -2215,6 +2350,7 @@ private fun AddFriendDialog(
             }
         }
     }
+}
 }
 
 // =====================================================================

@@ -71,6 +71,12 @@ object NuxSocialManager {
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    private val _onlineRecommendations = MutableStateFlow<List<NuxUserProfile>>(emptyList())
+    val onlineRecommendations: StateFlow<List<NuxUserProfile>> = _onlineRecommendations.asStateFlow()
+
+    private val _isLoadingRecommendations = MutableStateFlow(false)
+    val isLoadingRecommendations: StateFlow<Boolean> = _isLoadingRecommendations.asStateFlow()
+
     // Jobs
     private var syncJob: Job? = null
     private var chatJob: Job? = null
@@ -605,6 +611,132 @@ object NuxSocialManager {
         } catch (_: Exception) {} finally {
             _searchResults.value = results
             _isSearching.value = false
+        }
+    }
+
+    /**
+     * Mengambil rekomendasi pengguna yang sedang online (maksimal 50 user, acak/shuffled).
+     * Jika online < 50, tampilkan semua user yang sedang online.
+     * Jika tidak ada yang online, tampilkan pengguna terdaftar aktif secara acak.
+     */
+    suspend fun fetchOnlineRecommendations(maxLimit: Int = 50) = withContext(Dispatchers.IO) {
+        val myUid = getCurrentUser()?.uid ?: ""
+        var token = getAuthToken()
+        _isLoadingRecommendations.value = true
+
+        try {
+            val now = System.currentTimeMillis()
+            val onlineCandidates = mutableListOf<NuxUserProfile>()
+            val otherCandidates = mutableListOf<NuxUserProfile>()
+            val processedUids = mutableSetOf<String>()
+
+            // 1. Ambil data public profiles
+            var url = buildUrl("shared_social/public_profiles", token)
+            var resp = client.newCall(Request.Builder().url(url).get().build()).execute()
+            if (resp.code == 401 || resp.code == 403) {
+                resp.close()
+                token = getAuthToken(forceRefresh = true)
+                url = buildUrl("shared_social/public_profiles", token)
+                resp = client.newCall(Request.Builder().url(url).get().build()).execute()
+            }
+            val body = resp.body?.string() ?: ""
+            resp.close()
+
+            if (resp.isSuccessful && body.isNotEmpty() && body != "null") {
+                val json = JSONObject(body)
+                for (key in json.keys()) {
+                    if (key == myUid) continue
+                    val uObj = json.optJSONObject(key) ?: continue
+                    val uname = uObj.optString("username", "")
+                    if (uname.isBlank()) continue
+
+                    val pStatus = uObj.optString("status", "offline")
+                    val pLastOnline = if (uObj.has("lastOnline")) uObj.optLong("lastOnline") else 0L
+                    val isFresh = if (pLastOnline > 0L) (now - pLastOnline) < 300_000L else false
+                    val isOnline = (pStatus == "online" || pStatus == "in_game") && (isFresh || pLastOnline == 0L)
+
+                    val isVerified = uObj.optBoolean("verified", false) || uObj.optBoolean("isVerified", false)
+                    val isPremium = uObj.optBoolean("isPremium", false)
+                    val pPlatform = uObj.optString("platform", "windows")
+                    val isAndroid = uObj.optBoolean("isAndroid", pPlatform.equals("android", ignoreCase = true))
+
+                    val profile = NuxUserProfile(
+                        uid = key,
+                        username = uname,
+                        photoURL = uObj.optString("photoURL", ""),
+                        status = if (isOnline) pStatus else "offline",
+                        lastOnline = if (pLastOnline > 0L) pLastOnline else null,
+                        platform = pPlatform,
+                        isAndroid = isAndroid,
+                        isVerified = isVerified,
+                        isPremium = isPremium
+                    )
+                    processedUids.add(key)
+                    if (isOnline) {
+                        onlineCandidates.add(profile)
+                    } else {
+                        otherCandidates.add(profile)
+                    }
+                }
+            }
+
+            // 2. Fallback check global/auth_registry jika kandidat online masih sedikit
+            if (onlineCandidates.size < maxLimit) {
+                try {
+                    val authRegUrl = "$RTDB_BASE/global/auth_registry.json"
+                    val regResp = client.newCall(Request.Builder().url(authRegUrl).get().build()).execute()
+                    val regBody = regResp.body?.string() ?: ""
+                    regResp.close()
+                    if (regResp.isSuccessful && regBody.isNotEmpty() && regBody != "null") {
+                        val regJson = JSONObject(regBody)
+                        for (key in regJson.keys()) {
+                            if (key == myUid || processedUids.contains(key)) continue
+                            val uObj = regJson.optJSONObject(key) ?: continue
+                            val uname = uObj.optString("username", "")
+                            if (uname.isBlank()) continue
+
+                            val pStatus = uObj.optString("status", "offline")
+                            val isOnline = pStatus == "online" || pStatus == "in_game"
+                            val profile = NuxUserProfile(
+                                uid = key,
+                                username = uname,
+                                photoURL = uObj.optString("photoURL", ""),
+                                status = if (isOnline) pStatus else "offline",
+                                platform = uObj.optString("platform", "android"),
+                                isAndroid = true,
+                                isVerified = uObj.optBoolean("isActivated", false),
+                                isPremium = false
+                            )
+                            processedUids.add(key)
+                            if (isOnline) {
+                                onlineCandidates.add(profile)
+                            } else {
+                                otherCandidates.add(profile)
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+
+            // Aturan: Tampilkan sampai 50 user yang sedang online (jika < 50 tampilkan semua yang online)
+            // Hasil selalu di-acak (shuffled) agar fresh setiap kali dibuka
+            val finalResult = if (onlineCandidates.isNotEmpty()) {
+                onlineCandidates.shuffled().take(maxLimit)
+            } else {
+                otherCandidates.shuffled().take(maxLimit)
+            }
+
+            _onlineRecommendations.value = finalResult
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchOnlineRecommendations error", e)
+        } finally {
+            _isLoadingRecommendations.value = false
+        }
+    }
+
+    fun shuffleCurrentRecommendations() {
+        if (_onlineRecommendations.value.isNotEmpty()) {
+            _onlineRecommendations.value = _onlineRecommendations.value.shuffled()
         }
     }
 
