@@ -683,13 +683,14 @@ fun NuxWardrobeDialog(
                         ) {
                             NuxButton(
                                 onClick = onDismissRequest,
-                                backgroundColor = NuxColors.SurfaceInput,
-                                contentColor = NuxColors.DarkGray,
+                                backgroundColor = Color(0xFF1A1D27),
+                                borderColor = Color(0x33FFFFFF),
+                                contentColor = Color.White,
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(32.dp)
                             ) {
-                                Text("BATAL", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                Text("BATAL", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                             }
 
                             NuxButton(

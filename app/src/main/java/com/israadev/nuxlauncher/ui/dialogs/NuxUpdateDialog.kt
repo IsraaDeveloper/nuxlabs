@@ -269,7 +269,8 @@ fun NuxUpdateDialog(
                     ) {
                         NuxButton(
                             onClick = onDismiss,
-                            backgroundColor = NuxColors.SurfaceInput,
+                            backgroundColor = Color(0xFF1A1D27),
+                            borderColor = Color(0x33FFFFFF),
                             contentColor = Color.White,
                             cornerRadius = 8.dp,
                             modifier = Modifier.height(32.dp)

@@ -874,13 +874,14 @@ fun NuxPremiumDialog(
             // ==========================================
             NuxButton(
                 onClick = onDismissRequest,
-                backgroundColor = NuxColors.SurfaceInput,
-                contentColor = NuxColors.DarkGray,
+                backgroundColor = Color(0xFF1A1D27),
+                borderColor = Color(0x33FFFFFF),
+                contentColor = Color.White,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(30.dp)
             ) {
-                Text("TUTUP", fontWeight = FontWeight.Bold, fontSize = 9.5.sp)
+                Text("TUTUP", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 9.5.sp)
             }
         }
     }
