@@ -27,6 +27,8 @@ data class AuthUser(
     val isActivated: Boolean = false,
     val tier: String = "unactivated",
     val activatedAt: Long? = null,
+    val expiresAt: String? = null,
+    val redeemedKey: String? = null,
     val idToken: String = "",
     val refreshToken: String = ""
 )
@@ -49,7 +51,16 @@ data class ActivateResult(
     val success: Boolean,
     val isActivated: Boolean,
     val tier: String = "lifetime",
+    val expiresAt: String = "lifetime",
     val message: String = ""
+)
+
+data class SubscriptionInfo(
+    val isActivated: Boolean = false,
+    val tier: String = "unactivated",
+    val activatedAt: Long? = null,
+    val expiresAt: String? = null,
+    val redeemedKey: String? = null
 )
 
 object AuthService {
@@ -210,6 +221,9 @@ object AuthService {
                 platform = "android",
                 isActivated = isActivated,
                 tier = userObj?.get("tier")?.asString ?: "unactivated",
+                activatedAt = userObj?.get("activatedAt")?.asLong,
+                expiresAt = userObj?.get("expiresAt")?.asString,
+                redeemedKey = userObj?.get("redeemedKey")?.asString,
                 idToken = idToken,
                 refreshToken = refreshToken
             )
@@ -311,12 +325,14 @@ object AuthService {
                     }
 
                     val tier = obj.get("tier")?.asString ?: "lifetime"
+                    val expiresAt = obj.get("expiresAt")?.asString ?: "lifetime"
                     val msg = obj.get("message")?.asString ?: "Aktivasi berhasil!"
                     Result.success(
                         ActivateResult(
                             success = true,
                             isActivated = true,
                             tier = tier,
+                            expiresAt = expiresAt,
                             message = msg
                         )
                     )
@@ -328,6 +344,48 @@ object AuthService {
                 Result.failure(apiErr)
             }
         )
+    }
+
+    /**
+     * Dapatkan rincian paket langganan aktif dari Firebase Realtime Database
+     */
+    suspend fun fetchSubscriptionInfo(uid: String, idToken: String? = null): SubscriptionInfo? = withContext(Dispatchers.IO) {
+        if (uid.isBlank()) return@withContext null
+        try {
+            val url = if (!idToken.isNullOrBlank()) {
+                "$RTDB_BASE/android/users/$uid/subscription.json?auth=$idToken"
+            } else {
+                "$RTDB_BASE/android/users/$uid/subscription.json"
+            }
+            val req = Request.Builder().url(url).get().build()
+            val resp = client.newCall(req).execute()
+            val body = resp.body?.string() ?: ""
+            if (resp.isSuccessful && body.isNotBlank() && body != "null") {
+                val obj = gson.fromJson(body, JsonObject::class.java)
+                val isActivated = obj.get("isActivated")?.asBoolean ?: false
+                val tier = obj.get("tier")?.asString ?: "unactivated"
+                val activatedAt = if (obj.has("activatedAt") && !obj.get("activatedAt").isJsonNull) {
+                    obj.get("activatedAt").asLong
+                } else null
+                val expiresAt = if (obj.has("expiresAt") && !obj.get("expiresAt").isJsonNull) {
+                    obj.get("expiresAt").asString
+                } else null
+                val redeemedKey = if (obj.has("redeemedKey") && !obj.get("redeemedKey").isJsonNull) {
+                    obj.get("redeemedKey").asString
+                } else null
+
+                return@withContext SubscriptionInfo(
+                    isActivated = isActivated,
+                    tier = tier,
+                    activatedAt = activatedAt,
+                    expiresAt = expiresAt,
+                    redeemedKey = redeemedKey
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        null
     }
 
     /**
