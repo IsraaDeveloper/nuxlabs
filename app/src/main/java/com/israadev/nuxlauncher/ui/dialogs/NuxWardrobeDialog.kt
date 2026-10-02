@@ -80,6 +80,8 @@ fun NuxWardrobeDialog(
     var selectedPresetCapeId by remember { mutableStateOf<String?>(null) }
     var isAutoRotating by remember { mutableStateOf(true) }
 
+    var activeAccount by remember { mutableStateOf(account) }
+
     // Microsoft cape list state
     var isLoadingMicrosoftCapes by remember { mutableStateOf(false) }
     var microsoftCapes by remember { mutableStateOf<List<MicrosoftCape>>(emptyList()) }
@@ -87,13 +89,18 @@ fun NuxWardrobeDialog(
     var isSkinFileChanged by remember { mutableStateOf(false) }
     var isCapeChanged by remember { mutableStateOf(false) }
 
+    var isProcessing by remember { mutableStateOf(false) }
+    var statusMessage by remember { mutableStateOf<String?>(null) }
+    var selectedAnim by remember { mutableStateOf("Walking") }
+
     // Load Microsoft Capes from Minecraft.net if Microsoft account
     LaunchedEffect(account.id) {
-        if (isMicrosoft && account.safeAccessToken.isNotBlank()) {
+        if (isMicrosoft) {
             isLoadingMicrosoftCapes = true
             scope.launch {
-                val profRes = MicrosoftWardrobeService.getProfile(account.safeAccessToken)
-                profRes.onSuccess { prof ->
+                val profRes = MicrosoftWardrobeService.getProfile(context, activeAccount)
+                profRes.onSuccess { (updatedAcc, prof) ->
+                    activeAccount = updatedAcc
                     microsoftCapes = prof.capes
                     val activeCape = prof.capes.find { it.state.equals("ACTIVE", ignoreCase = true) }
                     selectedMicrosoftCapeId = activeCape?.id
@@ -101,26 +108,25 @@ fun NuxWardrobeDialog(
                         playerSkin.loadCapeUrl(activeCape.url)
                     }
                 }
+                profRes.onFailure { err ->
+                    statusMessage = "Gagal memuat jubah: ${err.message}"
+                }
                 isLoadingMicrosoftCapes = false
             }
         }
     }
 
-    var isProcessing by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
-    var selectedAnim by remember { mutableStateOf("Walking") }
-
     val persistAccountChanges: (File?, File?, String) -> UserAccount = { skinFile, capeFile, model ->
-        val updated = account.copy(
+        val updated = activeAccount.copy(
             skinModel = model,
-            accessToken = account.safeAccessToken,
-            refreshToken = account.safeRefreshToken,
-            email = account.safeEmail,
-            tier = account.safeTier,
+            accessToken = activeAccount.safeAccessToken,
+            refreshToken = activeAccount.safeRefreshToken,
+            email = activeAccount.safeEmail,
+            tier = activeAccount.safeTier,
             customSkinPath = skinFile?.absolutePath,
             customCapePath = capeFile?.absolutePath
         )
-        SkinUtils.invalidateHeadCache(account.id)
+        SkinUtils.invalidateHeadCache(activeAccount.id)
         AccountManager.updateAccount(context, updated)
         AccountManager.selectAccount(updated)
         onSaved(updated)
@@ -766,7 +772,7 @@ fun NuxWardrobeDialog(
                                                                 .background(Color(0xFFA855F7), CircleShape)
                                                         )
                                                         Text(
-                                                            text = cape.alias ?: "Minecraft Official Cape",
+                                                            text = MicrosoftWardrobeService.getCapeDisplayName(cape.alias),
                                                             color = if (isSelected) Color(0xFFA855F7) else NuxColors.DarkGray,
                                                             fontSize = 9.5.sp,
                                                             fontWeight = FontWeight.Bold
@@ -976,17 +982,21 @@ fun NuxWardrobeDialog(
                                                 var errorMsg: String? = null
 
                                                 if (isSkinFileChanged && currentSkinFile != null) {
-                                                    val res = MicrosoftWardrobeService.uploadSkin(account.safeAccessToken, currentSkinFile!!, selectedModel == "slim")
+                                                    val res = MicrosoftWardrobeService.uploadSkin(context, activeAccount, currentSkinFile!!, selectedModel == "slim")
                                                     if (res.isFailure) {
                                                         errorMsg = res.exceptionOrNull()?.message
+                                                    } else {
+                                                        activeAccount = res.getOrThrow()
                                                     }
                                                 }
 
                                                 if (isCapeChanged) {
-                                                    val res = MicrosoftWardrobeService.changeCape(account.safeAccessToken, selectedMicrosoftCapeId)
+                                                    val res = MicrosoftWardrobeService.changeCape(context, activeAccount, selectedMicrosoftCapeId)
                                                     if (res.isFailure) {
                                                         val capeErr = res.exceptionOrNull()?.message
                                                         errorMsg = if (errorMsg != null) "$errorMsg | $capeErr" else capeErr
+                                                    } else {
+                                                        activeAccount = res.getOrThrow()
                                                     }
                                                 }
 

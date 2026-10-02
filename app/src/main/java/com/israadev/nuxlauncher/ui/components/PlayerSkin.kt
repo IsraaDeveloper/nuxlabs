@@ -134,7 +134,8 @@ class PlayerSkin(
 
     fun loadCapeUrl(url: String?) {
         if (!url.isNullOrBlank()) {
-            webview?.evaluateJavascript("loadCape('$url')", null)
+            val safeUrl = if (url.startsWith("http://")) url.replace("http://", "https://") else url
+            webview?.evaluateJavascript("loadCape('$safeUrl')", null)
         } else {
             webview?.evaluateJavascript("loadCape(null)", null)
         }
