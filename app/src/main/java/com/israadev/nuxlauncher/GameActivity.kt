@@ -563,6 +563,18 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                 if (targetRenderer.isPlugin && !targetRenderer.pluginNativePath.isNullOrBlank()) {
                     runtimeLdPaths.add(targetRenderer.pluginNativePath!!)
                 }
+                // Deteksi subdirektori arsitektur Java 8 (misal lib/aarch64/)
+                val archSubDir = listOf("aarch64", "aarch32", "arm", "i386", "amd64", "x86_64")
+                    .map { File("$runtimeHomeStr/lib", it) }
+                    .firstOrNull { it.exists() && it.isDirectory }
+
+                if (archSubDir != null) {
+                    runtimeLdPaths.add("${archSubDir.absolutePath}/jli")
+                    runtimeLdPaths.add("${archSubDir.absolutePath}/server")
+                    runtimeLdPaths.add("${archSubDir.absolutePath}/client")
+                    runtimeLdPaths.add(archSubDir.absolutePath)
+                }
+
                 runtimeLdPaths.add("$runtimeHomeStr/lib/jli")
                 if (File("$runtimeHomeStr/jre").exists()) {
                     runtimeLdPaths.add("$runtimeHomeStr/jre/lib/server")
@@ -747,22 +759,44 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                 } catch (_: Throwable) {}
 
                 // Pre-dlopen Java Runtime core libraries (Identical to Zalith Launcher 2 dlopenJavaRuntime)
-                val isJava8 = File(runtimeHome, "jre").exists()
-                val rtLibDir = if (isJava8) File(runtimeHome, "jre/lib") else File(runtimeHome, "lib")
-                val rtJliDir = if (File(rtLibDir, "jli/libjli.so").exists()) File(rtLibDir, "jli") else rtLibDir
-                val rtJvmDir = if (File(rtLibDir, "server/libjvm.so").exists()) File(rtLibDir, "server") else File(rtLibDir, "client")
+                val isJava8 = File(runtimeHome, "jre").exists() || File(runtimeHome, "lib/rt.jar").exists() || File(runtimeHome, "lib/rt.jar.pack").exists()
+                val rtLibDir = if (File(runtimeHome, "jre/lib").exists()) File(runtimeHome, "jre/lib") else File(runtimeHome, "lib")
+                val archLibDir = listOf("aarch64", "aarch32", "arm", "i386", "amd64", "x86_64")
+                    .map { File(rtLibDir, it) }
+                    .firstOrNull { it.exists() && it.isDirectory } ?: rtLibDir
+
+                val rtJliDir = when {
+                    File(rtLibDir, "jli/libjli.so").exists() -> File(rtLibDir, "jli")
+                    File(archLibDir, "jli/libjli.so").exists() -> File(archLibDir, "jli")
+                    else -> rtLibDir
+                }
+                val rtJvmDir = when {
+                    File(rtLibDir, "server/libjvm.so").exists() -> File(rtLibDir, "server")
+                    File(rtLibDir, "client/libjvm.so").exists() -> File(rtLibDir, "client")
+                    File(archLibDir, "server/libjvm.so").exists() -> File(archLibDir, "server")
+                    File(archLibDir, "client/libjvm.so").exists() -> File(archLibDir, "client")
+                    else -> rtLibDir
+                }
 
                 val essentialLibs = listOf(
                     File(rtJliDir, "libjli.so"),
                     File(rtJvmDir, "libjvm.so"),
                     File(rtLibDir, "libfreetype.so"),
+                    File(archLibDir, "libfreetype.so"),
                     File(rtLibDir, "libverify.so"),
+                    File(archLibDir, "libverify.so"),
                     File(rtLibDir, "libjava.so"),
+                    File(archLibDir, "libjava.so"),
                     File(rtLibDir, "libnet.so"),
+                    File(archLibDir, "libnet.so"),
                     File(rtLibDir, "libnio.so"),
+                    File(archLibDir, "libnio.so"),
                     File(rtLibDir, "libawt.so"),
+                    File(archLibDir, "libawt.so"),
                     File(rtLibDir, "libawt_headless.so"),
-                    File(rtLibDir, "libfontmanager.so")
+                    File(archLibDir, "libawt_headless.so"),
+                    File(rtLibDir, "libfontmanager.so"),
+                    File(archLibDir, "libfontmanager.so")
                 )
                 essentialLibs.forEach { so ->
                     if (so.exists()) {

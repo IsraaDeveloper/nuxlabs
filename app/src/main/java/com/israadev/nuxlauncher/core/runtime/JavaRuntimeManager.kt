@@ -83,22 +83,22 @@ object JavaRuntimeManager {
         ensureExecutablePermissions(home)
 
         // Verify libjli.so exists
-        val jliFile = if (File(home, "lib/jli/libjli.so").exists()) {
-            File(home, "lib/jli/libjli.so")
-        } else {
-            File(home, "lib/libjli.so")
-        }
-        if (!jliFile.exists()) return false
+        val hasJli = File(home, "lib/jli/libjli.so").exists() ||
+                File(home, "lib/libjli.so").exists() ||
+                home.walkTopDown().any { it.name == "libjli.so" }
+        if (!hasJli) return false
 
         // Verify libjvm.so exists
-        val jvmFile = File(home, "lib/server/libjvm.so")
-        val clientJvmFile = File(home, "lib/client/libjvm.so")
-        if (!jvmFile.exists() && !clientJvmFile.exists()) return false
+        val hasJvm = File(home, "lib/server/libjvm.so").exists() ||
+                File(home, "lib/client/libjvm.so").exists() ||
+                home.walkTopDown().any { it.name == "libjvm.so" }
+        if (!hasJvm) return false
 
         // Verify modules (Java 9+) or rt.jar (Java 8)
-        val modulesFile = File(home, "lib/modules")
-        val rtJar = File(home, "lib/rt.jar")
-        if (!modulesFile.exists() && !rtJar.exists()) return false
+        val hasModulesOrRt = File(home, "lib/modules").exists() ||
+                File(home, "lib/rt.jar").exists() ||
+                home.walkTopDown().any { it.name == "rt.jar" }
+        if (!hasModulesOrRt) return false
 
         return true
     }
@@ -165,7 +165,7 @@ object JavaRuntimeManager {
             val arch = getDeviceArch()
             val assetPath = "runtimes/$runtimeName"
 
-            // 1. Unpack universal.tar.xz (libraries, modules, config) - 0% to 70%
+            // 1. Unpack universal.tar.xz (libraries, modules, config) - 0% to 55%
             onProgress(0.05f, "Mengekstrak Java Runtime ($runtimeName universal)...")
             val universalName = "$assetPath/universal.tar.xz"
             try {
@@ -174,7 +174,7 @@ object JavaRuntimeManager {
                         inputStream = input,
                         destDir = destDir,
                         baseProgress = 0.05f,
-                        targetProgress = 0.70f,
+                        targetProgress = 0.55f,
                         estimatedTotal = 600,
                         label = "Mengekstrak runtime universal ($runtimeName)",
                         onProgress = onProgress
@@ -185,16 +185,16 @@ object JavaRuntimeManager {
                 throw e
             }
 
-            // 2. Unpack bin-$arch.tar.xz (binaries, libjli, libjvm for arch) - 70% to 95%
-            onProgress(0.70f, "Mengekstrak Java Runtime ($runtimeName bin-$arch)...")
+            // 2. Unpack bin-$arch.tar.xz (binaries, libjli, libjvm for arch) - 55% to 75%
+            onProgress(0.55f, "Mengekstrak Java Runtime ($runtimeName bin-$arch)...")
             val binName = "$assetPath/bin-$arch.tar.xz"
             try {
                 context.assets.open(binName).use { input ->
                     unpackTarXz(
                         inputStream = input,
                         destDir = destDir,
-                        baseProgress = 0.70f,
-                        targetProgress = 0.95f,
+                        baseProgress = 0.55f,
+                        targetProgress = 0.75f,
                         estimatedTotal = 80,
                         label = "Mengekstrak native binary ($runtimeName $arch)",
                         onProgress = onProgress
@@ -205,11 +205,23 @@ object JavaRuntimeManager {
                 throw e
             }
 
-            // 3. Mark executables & permissions across bin and lib folders
+            // 3. Unpack file Pack200 (.pack) jika ada (khusus Java 8) - 75% to 92%
+            unpackPack200Files(
+                context = context,
+                runtimeDir = destDir,
+                baseProgress = 0.75f,
+                targetProgress = 0.92f,
+                onProgress = onProgress
+            )
+
+            // 4. Normalisasi tata letak arsitektur Java 8 (lib/aarch64 -> lib/)
+            normalizeJava8ArchLayout(destDir)
+
+            // 5. Mark executables & permissions across bin and lib folders
             onProgress(0.96f, "Memverifikasi izin sistem OpenJDK...")
             ensureExecutablePermissions(destDir)
             runCatching {
-                File(destDir, ".nux_perm_v2").writeText("1.0.4")
+                File(destDir, ".nux_perm_v2").writeText("1.0.8")
             }
 
             if (!isRuntimeInstalled(context, runtimeName)) {
@@ -220,6 +232,114 @@ object JavaRuntimeManager {
             Result.success(destDir)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    /**
+     * Membongkar seluruh file .pack (Pack200) menjadi file .jar (diperlukan untuk Java 8).
+     */
+    private suspend fun unpackPack200Files(
+        context: Context,
+        runtimeDir: File,
+        baseProgress: Float,
+        targetProgress: Float,
+        onProgress: (Float, String) -> Unit
+    ) = withContext(Dispatchers.IO) {
+        val packFiles = runtimeDir.walkTopDown()
+            .filter { it.isFile && it.name.endsWith(".pack") }
+            .toList()
+
+        if (packFiles.isEmpty()) return@withContext
+
+        // Temukan biner unpack200 dari nativeLibraryDir aplikasi atau fallback bin/unpack200
+        val nativeUnpack = File(context.applicationInfo.nativeLibraryDir, "libunpack200.so")
+        val internalUnpack = File(runtimeDir, "bin/unpack200")
+        if (internalUnpack.exists()) {
+            ensureExecutablePermissions(runtimeDir)
+        }
+
+        val unpackCmd = when {
+            nativeUnpack.exists() && nativeUnpack.canExecute() -> nativeUnpack.absolutePath
+            internalUnpack.exists() -> internalUnpack.absolutePath
+            nativeUnpack.exists() -> nativeUnpack.absolutePath
+            else -> "libunpack200.so"
+        }
+
+        val total = packFiles.size
+        packFiles.forEachIndexed { index, packFile ->
+            val jarFile = File(packFile.parentFile, packFile.name.removeSuffix(".pack"))
+            val p = baseProgress + (index.toFloat() / total) * (targetProgress - baseProgress)
+            onProgress(p, "Membongkar bytecode Java 8: ${jarFile.name} (${index + 1}/$total)...")
+
+            try {
+                val pb = ProcessBuilder(unpackCmd, "-r", packFile.absolutePath, jarFile.absolutePath)
+                pb.directory(runtimeDir)
+                pb.redirectErrorStream(true)
+                val process = pb.start()
+                val exitCode = process.waitFor()
+                if (exitCode != 0) {
+                    android.util.Log.w("JavaRuntimeManager", "unpack200 exit code $exitCode for ${packFile.name}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("JavaRuntimeManager", "Gagal unpack200 ${packFile.name}: ${e.message}", e)
+            }
+        }
+    }
+
+    /**
+     * Menghubungkan subdirektori arsitektur pada Java 8 (seperti lib/aarch64/)
+     * ke direktori lib/ utama agar kompatibel dengan pemanggilan libjvm.so dan libjli.so standar.
+     */
+    private fun normalizeJava8ArchLayout(runtimeDir: File) {
+        val libDir = File(runtimeDir, "lib")
+        if (!libDir.exists() || !libDir.isDirectory) return
+
+        val archNames = listOf("aarch64", "aarch32", "arm", "i386", "amd64", "x86_64")
+        val archFolder = archNames.map { File(libDir, it) }.firstOrNull { it.exists() && it.isDirectory }
+            ?: return
+
+        // 1. Hubungkan server / client JVM folder
+        val serverFolder = File(archFolder, "server")
+        val clientFolder = File(archFolder, "client")
+        val targetServer = File(libDir, "server")
+        val targetClient = File(libDir, "client")
+
+        if (serverFolder.exists() && !targetServer.exists()) {
+            try {
+                Os.symlink(serverFolder.absolutePath, targetServer.absolutePath)
+            } catch (_: Throwable) {
+                try { serverFolder.copyRecursively(targetServer, overwrite = true) } catch (_: Throwable) {}
+            }
+        }
+        if (clientFolder.exists() && !targetClient.exists()) {
+            try {
+                Os.symlink(clientFolder.absolutePath, targetClient.absolutePath)
+            } catch (_: Throwable) {
+                try { clientFolder.copyRecursively(targetClient, overwrite = true) } catch (_: Throwable) {}
+            }
+        }
+
+        // 2. Hubungkan jli folder
+        val jliFolder = File(archFolder, "jli")
+        val targetJli = File(libDir, "jli")
+        if (jliFolder.exists() && !targetJli.exists()) {
+            try {
+                Os.symlink(jliFolder.absolutePath, targetJli.absolutePath)
+            } catch (_: Throwable) {
+                try { jliFolder.copyRecursively(targetJli, overwrite = true) } catch (_: Throwable) {}
+            }
+        }
+
+        // 3. Hubungkan setiap shared library (.so) yang ada di archFolder ke libDir
+        archFolder.listFiles { f -> f.isFile && f.extension == "so" }?.forEach { soFile ->
+            val targetSo = File(libDir, soFile.name)
+            if (!targetSo.exists()) {
+                try {
+                    Os.symlink(soFile.absolutePath, targetSo.absolutePath)
+                } catch (_: Throwable) {
+                    try { soFile.copyTo(targetSo, overwrite = true) } catch (_: Throwable) {}
+                }
+            }
         }
     }
 
