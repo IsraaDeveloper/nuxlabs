@@ -21,5 +21,11 @@ data class CustomControlButton(
     val isToggle: Boolean = false,
     val isScroll: Boolean = false,
     val isSystem: Boolean = false,
-    val systemAction: String = "" // "FPS", "KEYBOARD", "HIDE_GUI", "CLOSE"
+    val systemAction: String = "", // "FPS", "KEYBOARD", "HIDE_GUI", "CLOSE"
+    // Macro Settings
+    val isMacro: Boolean = false,
+    val macroType: String = "COMMAND", // "COMMAND", "COMBO", "TURBO"
+    val macroCommand: String = "",      // e.g. "/gamemode creative", "/home"
+    val macroComboKey: Int = 0,        // e.g. GLFW_KEY_F3, GLFW_KEY_LEFT_SHIFT
+    val macroTurboIntervalMs: Long = 100L // Auto-click speed interval in ms
 )

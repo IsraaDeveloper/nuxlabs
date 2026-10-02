@@ -35,8 +35,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -1637,6 +1639,14 @@ fun CustomVirtualButton(
     modifier: Modifier = Modifier
 ) {
     var isPressed by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    var turboJob by remember { mutableStateOf<Job?>(null) }
+
+    DisposableEffect(button.id) {
+        onDispose {
+            turboJob?.cancel()
+        }
+    }
 
     if (button.isScroll) {
         val density = LocalDensity.current
@@ -1755,18 +1765,131 @@ fun CustomVirtualButton(
                 if (isPressed) Color(0xFF34D399) else Color(0x3834D399),
                 RoundedCornerShape(button.cornerRadiusDp.dp)
             )
-            .pointerInput(button.id, button.isToggle) {
+            .pointerInput(button.id, button.isToggle, button.isMacro, button.macroType, button.macroCommand, button.macroComboKey, button.macroTurboIntervalMs) {
                 detectTapGestures(
                     onPress = {
-                        if (button.isToggle) {
-                            isPressed = !isPressed
-                            sendPress(isPressed)
+                        if (button.isMacro) {
+                            when (button.macroType) {
+                                "COMMAND" -> {
+                                    val cmd = button.macroCommand.trim()
+                                    if (cmd.isNotEmpty()) {
+                                        isPressed = true
+                                        coroutineScope.launch {
+                                            try {
+                                                if (cmd.startsWith("/")) {
+                                                    CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_SLASH, true)
+                                                    delay(20)
+                                                    CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_SLASH, false)
+                                                    delay(50)
+                                                    val chars = cmd.substring(1)
+                                                    for (ch in chars) {
+                                                        CallbackBridge.sendChar(ch, 0)
+                                                        delay(10)
+                                                    }
+                                                } else {
+                                                    CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_T, true)
+                                                    delay(20)
+                                                    CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_T, false)
+                                                    delay(50)
+                                                    for (ch in cmd) {
+                                                        CallbackBridge.sendChar(ch, 0)
+                                                        delay(10)
+                                                    }
+                                                }
+                                                delay(40)
+                                                CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_ENTER, true)
+                                                delay(25)
+                                                CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_ENTER, false)
+                                            } finally {
+                                                delay(50)
+                                                isPressed = false
+                                            }
+                                        }
+                                        tryAwaitRelease()
+                                    }
+                                }
+                                "COMBO" -> {
+                                    if (button.isToggle) {
+                                        isPressed = !isPressed
+                                        if (button.macroComboKey != 0) {
+                                            CallbackBridge.sendKeyPress(button.macroComboKey, isPressed)
+                                        }
+                                        sendPress(isPressed)
+                                    } else {
+                                        isPressed = true
+                                        if (button.macroComboKey != 0) {
+                                            CallbackBridge.sendKeyPress(button.macroComboKey, true)
+                                        }
+                                        sendPress(true)
+                                        tryAwaitRelease()
+                                        sendPress(false)
+                                        if (button.macroComboKey != 0) {
+                                            CallbackBridge.sendKeyPress(button.macroComboKey, false)
+                                        }
+                                        isPressed = false
+                                    }
+                                }
+                                "TURBO" -> {
+                                    val interval = button.macroTurboIntervalMs.coerceAtLeast(30L)
+                                    val downTime = (interval / 2).coerceAtLeast(15L)
+                                    val upTime = (interval - downTime).coerceAtLeast(15L)
+
+                                    if (button.isToggle) {
+                                        isPressed = !isPressed
+                                        if (isPressed) {
+                                            turboJob = coroutineScope.launch {
+                                                while (isActive) {
+                                                    sendPress(true)
+                                                    delay(downTime)
+                                                    sendPress(false)
+                                                    delay(upTime)
+                                                }
+                                            }
+                                        } else {
+                                            turboJob?.cancel()
+                                            turboJob = null
+                                            sendPress(false)
+                                        }
+                                    } else {
+                                        isPressed = true
+                                        val job = coroutineScope.launch {
+                                            while (isActive) {
+                                                sendPress(true)
+                                                delay(downTime)
+                                                sendPress(false)
+                                                delay(upTime)
+                                            }
+                                        }
+                                        tryAwaitRelease()
+                                        job.cancel()
+                                        sendPress(false)
+                                        isPressed = false
+                                    }
+                                }
+                                else -> {
+                                    if (button.isToggle) {
+                                        isPressed = !isPressed
+                                        sendPress(isPressed)
+                                    } else {
+                                        isPressed = true
+                                        sendPress(true)
+                                        tryAwaitRelease()
+                                        isPressed = false
+                                        sendPress(false)
+                                    }
+                                }
+                            }
                         } else {
-                            isPressed = true
-                            sendPress(true)
-                            tryAwaitRelease()
-                            isPressed = false
-                            sendPress(false)
+                            if (button.isToggle) {
+                                isPressed = !isPressed
+                                sendPress(isPressed)
+                            } else {
+                                isPressed = true
+                                sendPress(true)
+                                tryAwaitRelease()
+                                isPressed = false
+                                sendPress(false)
+                            }
                         }
                     }
                 )
@@ -1784,6 +1907,19 @@ fun CustomVirtualButton(
                 fontSize = if (button.name.length > 5) 10.sp else 12.sp,
                 maxLines = 1
             )
+            if (button.isMacro) {
+                Text(
+                    text = when (button.macroType) {
+                        "COMMAND" -> "⚡CMD"
+                        "COMBO" -> "⚡CMB"
+                        "TURBO" -> "⚡TRB"
+                        else -> "⚡MAC"
+                    },
+                    color = if (isPressed) Color(0xFF022C22) else Color(0xFFFFD166),
+                    fontWeight = FontWeight.Black,
+                    fontSize = 7.sp
+                )
+            }
             if (button.isToggle && isPressed) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Box(
