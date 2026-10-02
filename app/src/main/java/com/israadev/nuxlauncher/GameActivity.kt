@@ -711,8 +711,8 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                 Os.setenv("AWTSTUB_HEIGHT", "$targetHeight", true)
                 Os.setenv("ALSOFT_DRIVERS", "opensl", true)
 
-                // Android DNS Resolver Setup (Matches Zalith & Pojav for SRV record resolution)
-                val resolvConf = File(filesDir, "resolv.conf")
+                // Android DNS Resolver Setup (Direct match with Zalith Launcher 2 & Pojav)
+                val resolvConf = File(gameDir, "resolv.conf")
                 val dnsServers = buildSet {
                     try {
                         val cm = getSystemService(android.net.ConnectivityManager::class.java)
@@ -727,17 +727,19 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                     } catch (_: Throwable) {}
                     add("1.1.1.1")
                     add("1.0.0.1")
-                    add("8.8.8.8")
-                    add("8.8.4.4")
                 }
                 val configText = dnsServers.joinToString(separator = "\n") { "nameserver $it" }
                 runCatching {
-                    resolvConf.writeText(configText)
-                    File(gameDir, "resolv.conf").writeText(configText)
+                    if (!resolvConf.exists() || resolvConf.readText().trim() != configText.trim()) {
+                        resolvConf.writeText(configText)
+                    }
+                    val altResolv = File(filesDir, "resolv.conf")
+                    if (!altResolv.exists() || altResolv.readText().trim() != configText.trim()) {
+                        altResolv.writeText(configText)
+                    }
                 }
                 try {
                     Os.setenv("RESOLV_CONF", resolvConf.absolutePath, true)
-                    Os.setenv("RES_OPTIONS", "retrans:1 retry:1 timeout:2", true)
                 } catch (_: Throwable) {}
 
                 // Pre-dlopen Java Runtime core libraries (Identical to Zalith Launcher 2 dlopenJavaRuntime)
@@ -895,17 +897,14 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                 jvmArgs.add("-Dsun.stdout.encoding=UTF-8")
                 jvmArgs.add("-Dsun.stderr.encoding=UTF-8")
 
-                // Robust Android Socket & Networking Stabilization (Direct match with Zalith / Pojav)
+                // High-performance Android Network & Netty Socket stabilization (Direct match with Zalith)
                 jvmArgs.add("-Dext.net.resolvPath=${resolvConf.absolutePath}")
                 jvmArgs.add("-Djava.net.preferIPv4Stack=true")
                 jvmArgs.add("-Djava.net.preferIPv6Addresses=false")
-                jvmArgs.add("-Dsun.net.dns.nameservers=${dnsServers.joinToString(",")}")
-                jvmArgs.add("-Ddns.server=${dnsServers.first()}")
-                jvmArgs.add("-Dsun.net.spi.nameservice.nameservers=${dnsServers.joinToString(",")}")
-                jvmArgs.add("-Dsun.net.spi.nameservice.provider.1=dns,sun")
+                jvmArgs.add("-Dio.netty.native.workdir=${cacheDir.absolutePath}")
+                jvmArgs.add("-Djna.tmpdir=${cacheDir.absolutePath}")
+                jvmArgs.add("-Dorg.lwjgl.system.SharedLibraryExtractPath=${cacheDir.absolutePath}")
                 jvmArgs.add("-Dio.netty.tryReflectionSetAccessible=true")
-                jvmArgs.add("-Dnetworkaddress.cache.ttl=30")
-                jvmArgs.add("-Dnetworkaddress.cache.negative.ttl=10")
 
                 jvmArgs.add("-XX:ActiveProcessorCount=${Runtime.getRuntime().availableProcessors()}")
                 jvmArgs.add("-Xms${activeSettings.initialHeapMb}M")
@@ -934,7 +933,7 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                     }
                 }
 
-                if (runtimeName.contains("21") || runtimeName.contains("25") || runtimeName.contains("17")) {
+                if (!isJava8) {
                     jvmArgs.add("--add-opens=java.base/java.lang=ALL-UNNAMED")
                     jvmArgs.add("--add-opens=java.base/java.lang.reflect=ALL-UNNAMED")
                     jvmArgs.add("--add-opens=java.base/java.util=ALL-UNNAMED")

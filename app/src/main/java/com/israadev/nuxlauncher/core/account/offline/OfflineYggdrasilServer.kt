@@ -234,11 +234,11 @@ class OfflineYggdrasilServer(
                     sendJsonResponse(output, 200, profilesArray.toString())
                 }
 
-                path == "/sessionserver/session/minecraft/join" && method == "POST" -> {
+                (path == "/sessionserver/session/minecraft/join" || path == "/session/minecraft/join") && method == "POST" -> {
                     sendEmptyResponse(output, 204, "No Content")
                 }
 
-                path == "/sessionserver/session/minecraft/hasJoined" -> {
+                path == "/sessionserver/session/minecraft/hasJoined" || path == "/session/minecraft/hasJoined" -> {
                     val query = if (uri.contains('?')) uri.substringAfter('?') else ""
                     val username = parseQueryParam(query, "username")
                     val char = if (username != null) charactersByName[username.lowercase()] else null
@@ -251,8 +251,8 @@ class OfflineYggdrasilServer(
                     }
                 }
 
-                path.startsWith("/sessionserver/session/minecraft/profile/") -> {
-                    val uuid = path.substringAfter("/sessionserver/session/minecraft/profile/").replace("-", "").lowercase()
+                path.startsWith("/sessionserver/session/minecraft/profile/") || path.startsWith("/session/minecraft/profile/") -> {
+                    val uuid = path.substringAfter("/profile/").replace("-", "").lowercase()
                     val char = charactersByUuid[uuid]
                     if (char != null) {
                         val port = getPort()
