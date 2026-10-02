@@ -485,7 +485,8 @@ fun DashboardScreen() {
                                                                 downloadMessage = "Menyiapkan OpenJDK (${JavaRuntimeManager.getRuntimeDisplayName(targetRuntime)})..."
 
                                                                 scope.launch {
-                                                                    JavaRuntimeManager.extractRuntime(context, targetRuntime) { msg ->
+                                                                    JavaRuntimeManager.extractRuntime(context, targetRuntime) { p, msg ->
+                                                                        downloadProgress = p
                                                                         downloadMessage = msg
                                                                     }
 
@@ -505,10 +506,11 @@ fun DashboardScreen() {
                                                                 if (!JavaRuntimeManager.isRuntimeInstalled(context, targetRuntime)) {
                                                                     isDownloading = true
                                                                     downloadTargetName = inst.name
-                                                                    downloadProgress = 0.5f
+                                                                    downloadProgress = 0f
                                                                     downloadMessage = "Menyiapkan OpenJDK (${JavaRuntimeManager.getRuntimeDisplayName(targetRuntime)})..."
                                                                     scope.launch {
-                                                                        val extRes = JavaRuntimeManager.extractRuntime(context, targetRuntime) { msg ->
+                                                                        val extRes = JavaRuntimeManager.extractRuntime(context, targetRuntime) { p, msg ->
+                                                                            downloadProgress = p
                                                                             downloadMessage = msg
                                                                         }
                                                                         isDownloading = false

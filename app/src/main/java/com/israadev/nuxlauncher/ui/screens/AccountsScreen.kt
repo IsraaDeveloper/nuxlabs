@@ -547,18 +547,29 @@ fun AccountsScreen(
                                             }
                                         }
 
-                                        // Wardrobe icon
+                                        // Wardrobe icon (Hanya untuk Microsoft & Akun Offline / Local, persis seperti ZalithLauncher)
+                                        val isSkinChangeAllowed = acc.safeAccountType == "microsoft" || acc.safeAccountType == "offline"
                                         Box(
                                             modifier = Modifier
                                                 .size(24.dp)
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .clickable { accountForWardrobe = acc },
+                                                .clickable {
+                                                    if (isSkinChangeAllowed) {
+                                                        accountForWardrobe = acc
+                                                    } else {
+                                                        Toast.makeText(
+                                                            context,
+                                                            "Skin & Jubah akun Ely.by dikelola langsung di https://account.ely.by",
+                                                            Toast.LENGTH_LONG
+                                                        ).show()
+                                                    }
+                                                },
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Outlined.Checkroom,
                                                 contentDescription = "Skin & Cape",
-                                                tint = Color(0xFF71717A),
+                                                tint = if (isSkinChangeAllowed) Color(0xFF71717A) else Color(0xFF3F3F46),
                                                 modifier = Modifier.size(14.dp)
                                             )
                                         }

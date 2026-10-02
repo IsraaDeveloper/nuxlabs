@@ -34,8 +34,8 @@ class MinecraftDownloader(
         })
         .connectionPool(okhttp3.ConnectionPool(64, 5, TimeUnit.MINUTES))
         .dns(com.israadev.nuxlauncher.core.network.NuxDns)
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(25, TimeUnit.SECONDS)
         .followRedirects(true)
         .retryOnConnectionFailure(true)
         .build()
@@ -87,14 +87,14 @@ class MinecraftDownloader(
                 )
             }
 
-            // 3. Download Libraries (Parallel with 48 Turbo threads for Premium, 8 threads for Free)
+            // 3. Download Libraries (Parallel with 48 Turbo threads for Premium, 20 threads for Free)
             val libraries = detail.libraries ?: emptyList()
             val allowedLibs = libraries.filter { isLibraryAllowed(it) }
             val libDir = InstanceManager.getLibrariesDir(context)
             if (!libDir.exists()) libDir.mkdirs()
 
             val isPremium = com.israadev.nuxlauncher.core.account.AccountManager.launcherUser.value?.isActivated == true
-            val libThreads = if (isPremium) 48 else 8
+            val libThreads = if (isPremium) 48 else 20
 
             val totalLibs = allowedLibs.size
             if (totalLibs > 0) {
@@ -120,7 +120,7 @@ class MinecraftDownloader(
                             }
                             val count = downloadedLibs.incrementAndGet()
                             val p = 0.20f + (count.toFloat() / totalLibs) * 0.40f
-                            onProgress(p, "Mengunduh libraries ($count/$totalLibs - ${if (isPremium) "Turbo 48x Threads" else "Standard 8x Threads"})...")
+                            onProgress(p, "Mengunduh libraries ($count/$totalLibs)...")
                         }
                     }
                 }
@@ -139,7 +139,7 @@ class MinecraftDownloader(
                     downloadFile(assetIndex.url, indexFile)
                 }
 
-                // Download objects (Parallel concurrency: 48 Turbo for Premium, 8 for Free)
+                // Download objects (Parallel concurrency: 48 Turbo for Premium, 24 for Free)
                 if (indexFile.exists()) {
                     try {
                         val indexContent = gson.fromJson(indexFile.readText(), AssetIndexContent::class.java)
@@ -148,7 +148,7 @@ class MinecraftDownloader(
                         val objectsDir = File(assetsDir, "objects")
 
                         val downloadedAssets = AtomicInteger(0)
-                        val assetThreads = if (isPremium) 48 else 8
+                        val assetThreads = if (isPremium) 48 else 24
                         val semaphore = Semaphore(assetThreads)
 
                         val assetJobs = objects.map { entry ->
@@ -166,10 +166,8 @@ class MinecraftDownloader(
                                         } catch (_: Exception) {}
                                     }
                                     val count = downloadedAssets.incrementAndGet()
-                                    if (count % 10 == 0 || count == totalObjects) {
-                                        val p = 0.65f + (count.toFloat() / totalObjects) * 0.27f
-                                        onProgress(p, "Mengunduh aset game ($count/$totalObjects - ${if (isPremium) "Turbo 48x Threads" else "Standard 8x Threads"})...")
-                                    }
+                                    val p = 0.65f + (count.toFloat() / totalObjects) * 0.27f
+                                    onProgress(p, "Mengunduh aset game ($count/$totalObjects)...")
                                 }
                             }
                         }
@@ -204,12 +202,12 @@ class MinecraftDownloader(
                 val fabricJsonFile = File(versionDir, "fabric-$loaderVer.json")
                 fabricJsonFile.writeText(gson.toJson(profile))
 
-                // Unduh seluruh library Fabric (Parallel with 16 concurrent workers)
+                // Unduh seluruh library Fabric (Parallel with 32 concurrent workers)
                 val fabricLibs = profile.libraries.filter { !it.name.contains("org.lwjgl") }
                 val totalFabricLibs = fabricLibs.size
                 if (totalFabricLibs > 0) {
                     val downloadedFabric = AtomicInteger(0)
-                    val sem = Semaphore(32) // Parallel 32 concurrent workers for Fabric
+                    val sem = Semaphore(32)
                     val fabricJobs = fabricLibs.map { lib ->
                         async {
                             sem.withPermit {
@@ -238,7 +236,7 @@ class MinecraftDownloader(
                                 }
                                 val count = downloadedFabric.incrementAndGet()
                                 val p = 0.94f + (count.toFloat() / totalFabricLibs) * 0.05f
-                                onProgress(p, "Mengunduh library Fabric ($count/$totalFabricLibs - 32 Threads)...")
+                                onProgress(p, "Mengunduh library Fabric ($count/$totalFabricLibs)...")
                             }
                         }
                     }
@@ -276,6 +274,8 @@ class MinecraftDownloader(
 
     private fun getMirrorUrls(url: String): List<String> {
         val urls = mutableListOf<String>()
+        // Official Mojang CDN uses Cloudflare/Akamai/Fastly edge servers in Indonesia/SE Asia (ultra fast)
+        urls.add(url)
         if (url.startsWith("https://piston-data.mojang.com")) {
             urls.add(url.replace("https://piston-data.mojang.com", "https://bmclapi2.bangbang93.com"))
         } else if (url.startsWith("https://piston-meta.mojang.com")) {
@@ -289,7 +289,6 @@ class MinecraftDownloader(
         } else if (url.startsWith("https://maven.fabricmc.net")) {
             urls.add(url.replace("https://maven.fabricmc.net", "https://bmclapi2.bangbang93.com/maven"))
         }
-        urls.add(url)
         return urls
     }
 

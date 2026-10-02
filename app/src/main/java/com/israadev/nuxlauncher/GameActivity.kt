@@ -194,6 +194,7 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
             CrashManager.onGameSessionEnded(this)
             ZLBridge.releaseBridgeWindow()
             com.israadev.nuxlauncher.core.skin.OfflineSkinServerManager.stopServer()
+            com.israadev.nuxlauncher.core.account.offline.OfflineYggdrasilServer.activeInstance?.stop()
         } catch (_: Throwable) {}
         finish()
         android.os.Process.killProcess(android.os.Process.myPid())
@@ -206,6 +207,7 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
             CrashManager.onGameSessionEnded(this)
             ZLBridge.releaseBridgeWindow()
             com.israadev.nuxlauncher.core.skin.OfflineSkinServerManager.stopServer()
+            com.israadev.nuxlauncher.core.account.offline.OfflineYggdrasilServer.activeInstance?.stop()
         } catch (_: Throwable) {}
         android.os.Process.killProcess(android.os.Process.myPid())
     }

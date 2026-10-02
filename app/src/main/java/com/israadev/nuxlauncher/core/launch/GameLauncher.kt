@@ -153,20 +153,56 @@ object GameLauncher {
         val accessToken = if (account.safeAccessToken.isNotBlank()) account.safeAccessToken else "0"
 
         val isElyBy = account.safeAccountType == "elyby"
+        val isOffline = account.safeAccountType == "offline"
 
         var authlibJar: File? = null
         var authlibUrl: String? = null
+        var playerUuid = account.uuid
 
         if (isElyBy) {
             authlibJar = LwjglManager.prepareAuthLibInjector(context)
             authlibUrl = account.authServerUrl ?: "https://authserver.ely.by/api/authlib-injector"
+
+            // Pastikan UUID adalah 32-karakter valid yang dikenali server Ely.by
+            if (playerUuid.length != 32 || playerUuid.toLongOrNull() != null) {
+                val realUuid = com.israadev.nuxlauncher.core.account.elyby.ElyByAuthService.fetchRealPlayerUuid(account.username)
+                if (realUuid.isNotBlank()) {
+                    playerUuid = realUuid
+                    val updated = account.copy(uuid = realUuid)
+                    com.israadev.nuxlauncher.core.account.AccountManager.updateAccount(context, updated)
+                }
+            }
+        } else if (isOffline) {
+            val skinFile = account.getSkinFile()
+            val capeFile = account.getCapeFile()
+            val hasCustomSkinOrCape = (skinFile != null && skinFile.exists()) || (capeFile != null && capeFile.exists())
+
+            if (hasCustomSkinOrCape) {
+                // Hentikan server sebelumnya jika masih aktif
+                com.israadev.nuxlauncher.core.account.offline.OfflineYggdrasilServer.activeInstance?.stop()
+
+                val offlineServer = com.israadev.nuxlauncher.core.account.offline.OfflineYggdrasilServer(0)
+                offlineServer.addCharacter(
+                    username = account.username,
+                    uuid = playerUuid,
+                    skinFile = skinFile,
+                    capeFile = capeFile,
+                    isSlim = account.safeSkinModel == "slim"
+                )
+                val port = offlineServer.start()
+                if (port > 0) {
+                    authlibJar = LwjglManager.prepareAuthLibInjector(context)
+                    authlibUrl = "http://127.0.0.1:$port"
+                    android.util.Log.i("GameLauncher", "Mengaktifkan Offline Yggdrasil server pada port $port untuk ${account.username}")
+                }
+            }
         }
 
         val intent = Intent(context, GameActivity::class.java).apply {
             putExtra(GameActivity.EXTRA_INSTANCE_NAME, instance.name)
             putExtra(GameActivity.EXTRA_MC_VERSION, instance.mcVersion)
             putExtra(GameActivity.EXTRA_USERNAME, account.username)
-            putExtra(GameActivity.EXTRA_UUID, account.uuid)
+            putExtra(GameActivity.EXTRA_UUID, playerUuid)
             putExtra(GameActivity.EXTRA_ACCESS_TOKEN, accessToken)
             putExtra(GameActivity.EXTRA_USER_TYPE, userType)
             if (authlibJar != null && authlibUrl != null) {

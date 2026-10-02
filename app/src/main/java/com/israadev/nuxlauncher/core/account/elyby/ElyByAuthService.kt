@@ -343,6 +343,27 @@ object ElyByAuthService {
     }
 
     /**
+     * Resolves authentic 32-character Ely.by Yggdrasil UUID for username
+     */
+    fun fetchRealPlayerUuid(username: String): String {
+        return try {
+            val uuidReq = Request.Builder()
+                .url("https://authserver.ely.by/api/users/profiles/minecraft/$username")
+                .get()
+                .build()
+            httpClient.newCall(uuidReq).execute().use { response ->
+                if (response.isSuccessful) {
+                    val bodyStr = response.body?.string() ?: ""
+                    val json = JsonParser.parseString(bodyStr).asJsonObject
+                    json.get("id")?.asString?.replace("-", "") ?: ""
+                } else ""
+            }
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    /**
      * Fallback login langsung (tidak ditampilkan di UI, disimpan untuk kompatibilitas)
      */
     suspend fun loginWithCredentials(

@@ -142,7 +142,13 @@ object JavaRuntimeManager {
     suspend fun extractRuntime(
         context: Context,
         runtimeName: String,
-        onProgress: (String) -> Unit = {}
+        onProgressString: (String) -> Unit
+    ): Result<File> = extractRuntime(context, runtimeName) { _, msg -> onProgressString(msg) }
+
+    suspend fun extractRuntime(
+        context: Context,
+        runtimeName: String,
+        onProgress: (Float, String) -> Unit = { _, _ -> }
     ): Result<File> = withContext(Dispatchers.IO) {
         try {
             val destDir = getRuntimeHome(context, runtimeName)
@@ -159,24 +165,40 @@ object JavaRuntimeManager {
             val arch = getDeviceArch()
             val assetPath = "runtimes/$runtimeName"
 
-            // 1. Unpack universal.tar.xz (libraries, modules, config)
-            onProgress("Mengekstrak Java Runtime ($runtimeName universal)...")
+            // 1. Unpack universal.tar.xz (libraries, modules, config) - 0% to 70%
+            onProgress(0.05f, "Mengekstrak Java Runtime ($runtimeName universal)...")
             val universalName = "$assetPath/universal.tar.xz"
             try {
                 context.assets.open(universalName).use { input ->
-                    unpackTarXz(input, destDir)
+                    unpackTarXz(
+                        inputStream = input,
+                        destDir = destDir,
+                        baseProgress = 0.05f,
+                        targetProgress = 0.70f,
+                        estimatedTotal = 600,
+                        label = "Mengekstrak runtime universal ($runtimeName)",
+                        onProgress = onProgress
+                    )
                 }
             } catch (e: Exception) {
                 android.util.Log.e("JavaRuntimeManager", "Gagal unpack universal.tar.xz: ${e.message}", e)
                 throw e
             }
 
-            // 2. Unpack bin-$arch.tar.xz (binaries, libjli, libjvm for arch)
-            onProgress("Mengekstrak Java Runtime ($runtimeName bin-$arch)...")
+            // 2. Unpack bin-$arch.tar.xz (binaries, libjli, libjvm for arch) - 70% to 95%
+            onProgress(0.70f, "Mengekstrak Java Runtime ($runtimeName bin-$arch)...")
             val binName = "$assetPath/bin-$arch.tar.xz"
             try {
                 context.assets.open(binName).use { input ->
-                    unpackTarXz(input, destDir)
+                    unpackTarXz(
+                        inputStream = input,
+                        destDir = destDir,
+                        baseProgress = 0.70f,
+                        targetProgress = 0.95f,
+                        estimatedTotal = 80,
+                        label = "Mengekstrak native binary ($runtimeName $arch)",
+                        onProgress = onProgress
+                    )
                 }
             } catch (e: Exception) {
                 android.util.Log.e("JavaRuntimeManager", "Gagal unpack bin-$arch.tar.xz: ${e.message}", e)
@@ -184,6 +206,7 @@ object JavaRuntimeManager {
             }
 
             // 3. Mark executables & permissions across bin and lib folders
+            onProgress(0.96f, "Memverifikasi izin sistem OpenJDK...")
             ensureExecutablePermissions(destDir)
             runCatching {
                 File(destDir, ".nux_perm_v2").writeText("1.0.4")
@@ -193,16 +216,26 @@ object JavaRuntimeManager {
                 return@withContext Result.failure(Exception("Verifikasi OpenJDK $runtimeName tidak lengkap setelah ekstraksi."))
             }
 
+            onProgress(1.0f, "Ekstraksi OpenJDK $runtimeName selesai!")
             Result.success(destDir)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    private fun unpackTarXz(inputStream: InputStream, destDir: File) {
+    private fun unpackTarXz(
+        inputStream: InputStream,
+        destDir: File,
+        baseProgress: Float = 0f,
+        targetProgress: Float = 1f,
+        estimatedTotal: Int = 100,
+        label: String = "Mengekstrak",
+        onProgress: (Float, String) -> Unit = { _, _ -> }
+    ) {
         TarArchiveInputStream(XZCompressorInputStream(inputStream)).use { tarIn ->
             val buffer = ByteArray(32768)
             var entry = tarIn.nextEntry
+            var fileCount = 0
             while (entry != null) {
                 val cleanName = entry.name.removePrefix("./").removePrefix("/")
                 if (cleanName.isNotEmpty() && cleanName != ".") {
@@ -231,6 +264,11 @@ object JavaRuntimeManager {
                             targetFile.setReadable(true, false)
                         }
                     }
+                    fileCount++
+                    val ratio = (fileCount.toFloat() / estimatedTotal).coerceIn(0f, 0.98f)
+                    val p = baseProgress + ratio * (targetProgress - baseProgress)
+                    val fileName = cleanName.substringAfterLast('/')
+                    onProgress(p, "$label: $fileName ($fileCount file)")
                 }
                 entry = tarIn.nextEntry
             }
