@@ -401,6 +401,20 @@ fun NuxAboutDialog(
                                 }
                             )
 
+                            // 3. NUX Launcher Open Source Repository
+                            UpstreamProjectCard(
+                                title = "NUX Launcher (Source Code)",
+                                copyright = "Copyright © 2026 IsraaDeveloper & Contributors",
+                                license = "GNU General Public License v3.0 (GPL-3.0)",
+                                description = "Repositori kode sumber terbuka NUX Launcher. Dilisensikan bebas di bawah ketentuan GNU GPL-3.0.",
+                                url = "https://github.com/IsraaDeveloper/nuxlabs",
+                                onOpenUrl = { url ->
+                                    try {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                    } catch (_: Exception) {}
+                                }
+                            )
+
                             // Disclaimer Card
                             Box(
                                 modifier = Modifier
@@ -412,7 +426,7 @@ fun NuxAboutDialog(
                             ) {
                                 Column {
                                     Text(
-                                        text = "PENADIAN RESMI MINECRAFT & MOJANG:",
+                                        text = "PENAFIAN RESMI MINECRAFT & MOJANG (DISCLAIMER):",
                                         color = Color(0xFFA1A1AA),
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 8.sp,
