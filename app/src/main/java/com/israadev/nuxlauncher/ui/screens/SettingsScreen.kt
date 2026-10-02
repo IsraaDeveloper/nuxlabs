@@ -579,7 +579,7 @@ fun SettingsScreen(
                             ) {
                                 Text("Email Terdaftar", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = NuxColors.GrayNeutral)
                                 Text(
-                                    text = launcherUser?.email?.ifBlank { "Offline / Guest" } ?: "-",
+                                    text = launcherUser?.email?.ifBlank { "Offline" } ?: "-",
                                     fontSize = 10.5.sp,
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import com.google.gson.Gson
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,6 +18,30 @@ import java.io.ByteArrayOutputStream
 import java.util.concurrent.TimeUnit
 import com.israadev.nuxlauncher.core.account.AccountManager
 import com.israadev.nuxlauncher.core.network.NuxConfig
+
+private fun JsonElement?.asStringOrNull(): String? {
+    return if (this != null && !this.isJsonNull) {
+        try { this.asString } catch (_: Exception) { null }
+    } else null
+}
+
+private fun JsonElement?.asLongOrNull(): Long? {
+    return if (this != null && !this.isJsonNull) {
+        try { this.asLong } catch (_: Exception) { null }
+    } else null
+}
+
+private fun JsonElement?.asBooleanOrDefault(default: Boolean = false): Boolean {
+    return if (this != null && !this.isJsonNull) {
+        try { this.asBoolean } catch (_: Exception) { default }
+    } else default
+}
+
+private fun JsonElement?.asIntOrDefault(default: Int = 0): Int {
+    return if (this != null && !this.isJsonNull) {
+        try { this.asInt } catch (_: Exception) { default }
+    } else default
+}
 
 data class AuthUser(
     val uid: String = "",
@@ -103,18 +128,17 @@ object AuthService {
                 try {
                     val errorJson = gson.fromJson(responseBody, JsonObject::class.java)
                     if (errorJson != null) {
-                        if (errorJson.has("remainingSeconds")) {
-                            val remSec = errorJson.get("remainingSeconds").asInt
-                            if (remSec > 0) {
-                                OtpCooldownManager.markOtpSent(null, remSec)
-                            }
+                        val remSec = errorJson.get("remainingSeconds").asIntOrDefault(0)
+                        if (remSec > 0) {
+                            OtpCooldownManager.markOtpSent(null, remSec)
                         }
-                        if (errorJson.has("error")) {
-                            val msg = errorJson.get("error").asString
-                            return@withContext Result.failure(Exception(msg))
+                        val errorStr = errorJson.get("error").asStringOrNull()
+                        if (!errorStr.isNullOrBlank()) {
+                            return@withContext Result.failure(Exception(errorStr))
                         }
-                        if (errorJson.has("success") && !errorJson.get("success").asBoolean) {
-                            val msg = if (errorJson.has("message")) errorJson.get("message").asString else "Permintaan ditolak oleh server."
+                        val isSuccess = errorJson.get("success").asBooleanOrDefault(true)
+                        if (!isSuccess) {
+                            val msg = errorJson.get("message").asStringOrNull() ?: "Permintaan ditolak oleh server."
                             return@withContext Result.failure(Exception(msg))
                         }
                     }
@@ -158,7 +182,7 @@ object AuthService {
         val result = postApi("/api/auth/send-otp", payload.toString())
         return result.mapCatching { json ->
             val obj = gson.fromJson(json, JsonObject::class.java)
-            obj.get("message")?.asString ?: "Kode verifikasi 6-digit telah dikirim ke email kamu."
+            obj.get("message").asStringOrNull() ?: "Kode verifikasi 6-digit telah dikirim ke email kamu."
         }
     }
 
@@ -179,20 +203,21 @@ object AuthService {
         val result = postApi("/api/auth/android/register", payload.toString())
         return result.mapCatching { json ->
             val obj = gson.fromJson(json, JsonObject::class.java)
-            val userObj = obj.getAsJsonObject("user")
+            val userObj = if (obj.has("user") && obj.get("user")?.isJsonObject == true) obj.getAsJsonObject("user") else null
+            val isActivated = obj.get("isActivated").asBooleanOrDefault(false)
             val user = AuthUser(
-                uid = userObj?.get("uid")?.asString ?: "",
-                email = userObj?.get("email")?.asString ?: email,
-                username = userObj?.get("username")?.asString ?: username,
-                photoURL = userObj?.get("photoURL")?.asString ?: "",
+                uid = userObj?.get("uid").asStringOrNull() ?: "",
+                email = userObj?.get("email").asStringOrNull() ?: email,
+                username = userObj?.get("username").asStringOrNull() ?: username,
+                photoURL = userObj?.get("photoURL").asStringOrNull() ?: "",
                 platform = "android",
-                isActivated = obj.get("isActivated")?.asBoolean ?: false
+                isActivated = isActivated
             )
             RegisterResult(
-                success = obj.get("success")?.asBoolean ?: true,
+                success = obj.get("success").asBooleanOrDefault(true),
                 isActivated = user.isActivated,
                 user = user,
-                message = obj.get("message")?.asString
+                message = obj.get("message").asStringOrNull()
             )
         }
     }
@@ -209,29 +234,29 @@ object AuthService {
         val result = postApi("/api/auth/android/login", payload.toString())
         return result.mapCatching { json ->
             val obj = gson.fromJson(json, JsonObject::class.java)
-            val isActivated = obj.get("isActivated")?.asBoolean ?: false
-            val userObj = obj.getAsJsonObject("user")
-            val idToken = obj.get("idToken")?.asString ?: ""
-            val refreshToken = obj.get("refreshToken")?.asString ?: ""
+            val isActivated = obj.get("isActivated").asBooleanOrDefault(false)
+            val userObj = if (obj.has("user") && obj.get("user")?.isJsonObject == true) obj.getAsJsonObject("user") else null
+            val idToken = obj.get("idToken").asStringOrNull() ?: ""
+            val refreshToken = obj.get("refreshToken").asStringOrNull() ?: ""
             val user = AuthUser(
-                uid = userObj?.get("uid")?.asString ?: "",
-                email = userObj?.get("email")?.asString ?: email,
-                username = userObj?.get("username")?.asString ?: email.substringBefore("@"),
-                photoURL = userObj?.get("photoURL")?.asString ?: "",
+                uid = userObj?.get("uid").asStringOrNull() ?: "",
+                email = userObj?.get("email").asStringOrNull() ?: email,
+                username = userObj?.get("username").asStringOrNull() ?: email.substringBefore("@"),
+                photoURL = userObj?.get("photoURL").asStringOrNull() ?: "",
                 platform = "android",
                 isActivated = isActivated,
-                tier = userObj?.get("tier")?.asString ?: "unactivated",
-                activatedAt = userObj?.get("activatedAt")?.asLong,
-                expiresAt = userObj?.get("expiresAt")?.asString,
-                redeemedKey = userObj?.get("redeemedKey")?.asString,
+                tier = userObj?.get("tier").asStringOrNull() ?: "unactivated",
+                activatedAt = userObj?.get("activatedAt").asLongOrNull(),
+                expiresAt = userObj?.get("expiresAt").asStringOrNull(),
+                redeemedKey = userObj?.get("redeemedKey").asStringOrNull(),
                 idToken = idToken,
                 refreshToken = refreshToken
             )
             LoginResult(
-                success = obj.get("success")?.asBoolean ?: true,
+                success = obj.get("success").asBooleanOrDefault(true),
                 isActivated = isActivated,
                 user = user,
-                message = obj.get("message")?.asString
+                message = obj.get("message").asStringOrNull()
             )
         }
     }
@@ -310,13 +335,10 @@ object AuthService {
             onSuccess = { json ->
                 try {
                     val obj = gson.fromJson(json, JsonObject::class.java)
-                    val isSuccess = obj.get("success")?.asBoolean ?: false
-                    val isActivated = obj.get("isActivated")?.asBoolean ?: false
-                    val errorMsg = when {
-                        obj.has("error") -> obj.get("error").asString
-                        obj.has("message") && !isSuccess -> obj.get("message").asString
-                        else -> null
-                    }
+                    val isSuccess = obj.get("success").asBooleanOrDefault(false)
+                    val isActivated = obj.get("isActivated").asBooleanOrDefault(false)
+                    val errorMsg = obj.get("error").asStringOrNull()
+                        ?: if (!isSuccess) obj.get("message").asStringOrNull() else null
 
                     if (!isSuccess || !isActivated || errorMsg != null) {
                         return@withContext Result.failure(
@@ -324,9 +346,9 @@ object AuthService {
                         )
                     }
 
-                    val tier = obj.get("tier")?.asString ?: "lifetime"
-                    val expiresAt = obj.get("expiresAt")?.asString ?: "lifetime"
-                    val msg = obj.get("message")?.asString ?: "Aktivasi berhasil!"
+                    val tier = obj.get("tier").asStringOrNull() ?: "lifetime"
+                    val expiresAt = obj.get("expiresAt").asStringOrNull() ?: "lifetime"
+                    val msg = obj.get("message").asStringOrNull() ?: "Aktivasi berhasil!"
                     Result.success(
                         ActivateResult(
                             success = true,

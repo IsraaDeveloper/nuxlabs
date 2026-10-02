@@ -485,42 +485,6 @@ fun AuthScreen(
                                 )
                             }
                         }
-
-                        // Tombol Masuk Langsung Sebagai Guest (Free)
-                        NuxButton(
-                            onClick = {
-                                val guestUser = AuthUser(
-                                    uid = "guest_" + java.util.UUID.randomUUID().toString().take(8),
-                                    email = "",
-                                    username = "NuxPlayer",
-                                    photoURL = "",
-                                    isActivated = false,
-                                    tier = "free"
-                                )
-                                AccountManager.saveAuthUser(context, guestUser)
-                                if (AccountManager.accounts.value.isEmpty()) {
-                                    AccountManager.addAccount(
-                                        context,
-                                        AccountManager.createGuestAccount("NuxPlayer")
-                                    )
-                                }
-                                onAuthSuccess()
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            backgroundColor = Color(0xFF181C26),
-                            contentColor = NuxColors.MintGreen,
-                            enabled = !isLoading
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = NuxColors.MintGreen, modifier = Modifier.size(16.dp))
-                                Text(
-                                    text = "MAIN LANGSUNG SEBAGAI GUEST (FREE)",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp,
-                                    color = NuxColors.MintGreen
-                                )
-                            }
-                        }
                     }
 
                     // ==========================================
