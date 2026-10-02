@@ -1481,12 +1481,19 @@ fun GameScreen(
                     }
                 }
             } else {
-                // Regular Minecraft Touch Control Button
+                // Regular Minecraft Touch Control Button or Joystick
                 if (isControlVisible) {
-                    CustomVirtualButton(
-                        button = btn,
-                        modifier = buttonModifier
-                    )
+                    if (btn.isJoystick) {
+                        CustomVirtualJoystick(
+                            button = btn,
+                            modifier = buttonModifier
+                        )
+                    } else {
+                        CustomVirtualButton(
+                            button = btn,
+                            modifier = buttonModifier
+                        )
+                    }
                 }
             }
         }
@@ -1765,7 +1772,7 @@ fun CustomVirtualButton(
                 if (isPressed) Color(0xFF34D399) else Color(0x3834D399),
                 RoundedCornerShape(button.cornerRadiusDp.dp)
             )
-            .pointerInput(button.id, button.isToggle, button.isMacro, button.macroType, button.macroCommand, button.macroComboKey, button.macroTurboIntervalMs) {
+            .pointerInput(button.id, button.isToggle, button.isMacro, button.macroType, button.macroCommand, button.macroComboKey, button.macroComboKeys, button.macroTurboIntervalMs) {
                 detectTapGestures(
                     onPress = {
                         if (button.isMacro) {
@@ -1809,22 +1816,39 @@ fun CustomVirtualButton(
                                     }
                                 }
                                 "COMBO" -> {
+                                    val comboKeys = if (button.macroComboKeys.isNotEmpty()) {
+                                        button.macroComboKeys
+                                    } else if (button.macroComboKey != 0) {
+                                        listOf(button.macroComboKey)
+                                    } else emptyList()
+
                                     if (button.isToggle) {
                                         isPressed = !isPressed
-                                        if (button.macroComboKey != 0) {
-                                            CallbackBridge.sendKeyPress(button.macroComboKey, isPressed)
+                                        if (isPressed) {
+                                            for (k in comboKeys) {
+                                                CallbackBridge.sendKeyPress(k, true)
+                                                delay(12)
+                                            }
+                                            sendPress(true)
+                                        } else {
+                                            sendPress(false)
+                                            for (k in comboKeys.reversed()) {
+                                                CallbackBridge.sendKeyPress(k, false)
+                                                delay(12)
+                                            }
                                         }
-                                        sendPress(isPressed)
                                     } else {
                                         isPressed = true
-                                        if (button.macroComboKey != 0) {
-                                            CallbackBridge.sendKeyPress(button.macroComboKey, true)
+                                        for (k in comboKeys) {
+                                            CallbackBridge.sendKeyPress(k, true)
+                                            delay(12)
                                         }
                                         sendPress(true)
                                         tryAwaitRelease()
                                         sendPress(false)
-                                        if (button.macroComboKey != 0) {
-                                            CallbackBridge.sendKeyPress(button.macroComboKey, false)
+                                        for (k in comboKeys.reversed()) {
+                                            CallbackBridge.sendKeyPress(k, false)
+                                            delay(12)
                                         }
                                         isPressed = false
                                     }
@@ -1931,4 +1955,206 @@ fun CustomVirtualButton(
         }
     }
 }
+
+@Composable
+fun CustomVirtualJoystick(
+    button: CustomControlButton,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val sizePx = with(density) { button.widthDp.dp.toPx() }
+    val radiusPx = sizePx / 2f
+    val knobRadiusPx = radiusPx * 0.38f
+    val maxDragDistance = radiusPx - knobRadiusPx
+
+    var knobOffset by remember { mutableStateOf(Offset.Zero) }
+    var isTouching by remember { mutableStateOf(false) }
+
+    var isWDown by remember { mutableStateOf(false) }
+    var isADown by remember { mutableStateOf(false) }
+    var isSDown by remember { mutableStateOf(false) }
+    var isDDown by remember { mutableStateOf(false) }
+
+    fun updateKeys(needW: Boolean, needA: Boolean, needS: Boolean, needD: Boolean) {
+        if (needW != isWDown) {
+            isWDown = needW
+            CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_W, needW)
+        }
+        if (needA != isADown) {
+            isADown = needA
+            CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_A, needA)
+        }
+        if (needS != isSDown) {
+            isSDown = needS
+            CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_S, needS)
+        }
+        if (needD != isDDown) {
+            isDDown = needD
+            CallbackBridge.sendKeyPress(LwjglGlfwKeycode.GLFW_KEY_D, needD)
+        }
+    }
+
+    fun releaseAll() {
+        updateKeys(false, false, false, false)
+        knobOffset = Offset.Zero
+        isTouching = false
+    }
+
+    DisposableEffect(button.id) {
+        onDispose {
+            releaseAll()
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .size(button.widthDp.dp)
+            .alpha(button.opacity)
+            .pointerInput(button.id) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        isTouching = true
+                        val center = Offset(size.width / 2f, size.height / 2f)
+
+                        fun processPosition(pos: Offset) {
+                            val rawDelta = pos - center
+                            val dist = kotlin.math.hypot(rawDelta.x.toDouble(), rawDelta.y.toDouble()).toFloat()
+                            val clampedDist = dist.coerceAtMost(maxDragDistance)
+                            val angleRad = kotlin.math.atan2(rawDelta.y.toDouble(), rawDelta.x.toDouble())
+
+                            knobOffset = if (dist > 0f) {
+                                Offset(
+                                    (kotlin.math.cos(angleRad) * clampedDist).toFloat(),
+                                    (kotlin.math.sin(angleRad) * clampedDist).toFloat()
+                                )
+                            } else {
+                                Offset.Zero
+                            }
+
+                            val deadzone = maxDragDistance * 0.20f
+                            if (clampedDist < deadzone) {
+                                updateKeys(false, false, false, false)
+                            } else {
+                                val deg = Math.toDegrees(angleRad)
+                                val w = deg in -157.5..-22.5
+                                val s = deg in 22.5..157.5
+                                val d = deg in -67.5..67.5
+                                val a = deg !in -112.5..112.5
+
+                                updateKeys(w, a, s, d)
+                            }
+                        }
+
+                        processPosition(down.position)
+
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) {
+                                break
+                            }
+                            processPosition(change.position)
+                            change.consume()
+                        }
+                        releaseAll()
+                    }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val r = size.minDimension / 2f
+            val c = Offset(size.width / 2f, size.height / 2f)
+
+            // Base plate
+            drawCircle(
+                color = if (isTouching) Color(0xCC0E1813) else Color(0x990A0E17),
+                radius = r,
+                center = c
+            )
+            // Outer glowing border
+            drawCircle(
+                color = if (isTouching) Color(0xFF34D399) else Color(0x4034D399),
+                radius = r - 1.5.dp.toPx(),
+                center = c,
+                style = Stroke(width = if (isTouching) 2.dp.toPx() else 1.5.dp.toPx())
+            )
+
+            // Crosshairs
+            drawLine(
+                color = if (isTouching) Color(0x5534D399) else Color(0x2534D399),
+                start = Offset(c.x, c.y - r * 0.7f),
+                end = Offset(c.x, c.y + r * 0.7f),
+                strokeWidth = 1.dp.toPx()
+            )
+            drawLine(
+                color = if (isTouching) Color(0x5534D399) else Color(0x2534D399),
+                start = Offset(c.x - r * 0.7f, c.y),
+                end = Offset(c.x + r * 0.7f, c.y),
+                strokeWidth = 1.dp.toPx()
+            )
+
+            // Active directional indicators
+            if (isWDown) drawCircle(Color(0xFF69F0AE), radius = 3.dp.toPx(), center = Offset(c.x, c.y - r * 0.8f))
+            if (isSDown) drawCircle(Color(0xFF69F0AE), radius = 3.dp.toPx(), center = Offset(c.x, c.y + r * 0.8f))
+            if (isADown) drawCircle(Color(0xFF69F0AE), radius = 3.dp.toPx(), center = Offset(c.x - r * 0.8f, c.y))
+            if (isDDown) drawCircle(Color(0xFF69F0AE), radius = 3.dp.toPx(), center = Offset(c.x + r * 0.8f, c.y))
+
+            // Knob
+            val currentKnobCenter = c + knobOffset
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = if (isTouching) listOf(Color(0xFF2E7D5B), Color(0xFF143325)) else listOf(Color(0xFF1B2921), Color(0xFF0F1A14)),
+                    center = currentKnobCenter,
+                    radius = knobRadiusPx
+                ),
+                radius = knobRadiusPx,
+                center = currentKnobCenter
+            )
+            drawCircle(
+                color = if (isTouching) Color(0xFF69F0AE) else Color(0xFF34D399),
+                radius = knobRadiusPx,
+                center = currentKnobCenter,
+                style = Stroke(width = 2.dp.toPx())
+            )
+            drawCircle(
+                color = if (isTouching) Color(0xFF69F0AE) else Color(0xFF10B981),
+                radius = 4.dp.toPx(),
+                center = currentKnobCenter
+            )
+        }
+
+        // Direction labels
+        Text(
+            text = "▲ W",
+            color = if (isWDown) Color(0xFF69F0AE) else Color(0x80A5D6A7),
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 4.dp)
+        )
+        Text(
+            text = "S ▼",
+            color = if (isSDown) Color(0xFF69F0AE) else Color(0x80A5D6A7),
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp)
+        )
+        Text(
+            text = "◀ A",
+            color = if (isADown) Color(0xFF69F0AE) else Color(0x80A5D6A7),
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.align(Alignment.CenterStart).padding(start = 4.dp)
+        )
+        Text(
+            text = "D ▶",
+            color = if (isDDown) Color(0xFF69F0AE) else Color(0x80A5D6A7),
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp)
+        )
+    }
+}
+
 
