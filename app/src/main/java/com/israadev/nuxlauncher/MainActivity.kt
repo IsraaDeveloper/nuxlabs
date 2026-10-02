@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
         AccountManager.init(this)
         InstanceManager.init(this)
         SettingsManager.init(this)
+        com.israadev.nuxlauncher.core.device.PhysicalMouseChecker.initChecker(this)
         com.israadev.nuxlauncher.core.controls.ControlLayoutManager.init(this)
         com.israadev.nuxlauncher.core.renderer.NuxRendererPluginManager.scanPlugins(this)
         com.israadev.nuxlauncher.core.social.NuxVoiceManager.init(this)

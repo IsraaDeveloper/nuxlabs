@@ -201,6 +201,7 @@ fun SettingsScreen(
     var cursorSensitivity by remember(currentSettings.cursorSensitivity) { mutableIntStateOf(currentSettings.cursorSensitivity) }
     var captureSensitivity by remember(currentSettings.captureSensitivity) { mutableIntStateOf(currentSettings.captureSensitivity) }
     var mouseSizeDp by remember(currentSettings.mouseSizeDp) { mutableIntStateOf(currentSettings.mouseSizeDp) }
+    var physicalMouseMode by remember(currentSettings.physicalMouseMode) { mutableStateOf(currentSettings.physicalMouseMode) }
 
     var resolutionRatio by remember(currentSettings.resolutionRatio) { mutableIntStateOf(currentSettings.resolutionRatio) }
     var autoOptimizeMC by remember(currentSettings.autoOptimizeMinecraft) { mutableStateOf(currentSettings.autoOptimizeMinecraft) }
@@ -229,6 +230,7 @@ fun SettingsScreen(
             cursorSensitivity = cursorSensitivity,
             captureSensitivity = captureSensitivity,
             mouseSizeDp = mouseSizeDp,
+            physicalMouseMode = physicalMouseMode,
             resolutionRatio = resolutionRatio,
             autoOptimizeMinecraft = autoOptimizeMC,
             sustainedPerformanceMode = sustainedPerf,
@@ -1776,6 +1778,44 @@ fun SettingsScreen(
                             )
                         }
 
+                        // Physical Mouse Mode Card (Zalith Style: Auto-Hide Virtual Cursor)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(NuxColors.SurfaceInput, RoundedCornerShape(6.dp))
+                                .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Mode Mouse Fisik (Auto-Hide)",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "Sembunyikan kursor virtual otomatis jika mouse eksternal tersambung",
+                                    fontSize = 9.sp,
+                                    color = NuxColors.GrayNeutral
+                                )
+                            }
+                            Switch(
+                                checked = physicalMouseMode,
+                                onCheckedChange = {
+                                    physicalMouseMode = it
+                                    commitSettings()
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = NuxColors.MintGreen,
+                                    checkedTrackColor = NuxColors.ForestGreen,
+                                    uncheckedThumbColor = Color.Gray,
+                                    uncheckedTrackColor = NuxColors.CardBorder
+                                )
+                            )
+                        }
+
                         // Device Info & Reset Buttons
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1793,6 +1833,7 @@ fun SettingsScreen(
                                     cursorSensitivity = reset.cursorSensitivity
                                     captureSensitivity = reset.captureSensitivity
                                     mouseSizeDp = reset.mouseSizeDp
+                                    physicalMouseMode = reset.physicalMouseMode
                                     resolutionRatio = reset.resolutionRatio
                                     autoOptimizeMC = reset.autoOptimizeMinecraft
                                     sustainedPerf = reset.sustainedPerformanceMode

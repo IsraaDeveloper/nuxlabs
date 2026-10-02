@@ -75,6 +75,7 @@ import com.israadev.nuxlauncher.core.game.input.TouchCharInput
 import com.israadev.nuxlauncher.ui.components.NuxBadge
 import com.israadev.nuxlauncher.ui.components.NuxButton
 import com.israadev.nuxlauncher.ui.components.NuxCard
+import com.israadev.nuxlauncher.core.device.PhysicalMouseChecker
 import com.israadev.nuxlauncher.ui.control.MouseControlMode
 import com.israadev.nuxlauncher.ui.control.SwitchableMouseLayout
 import com.israadev.nuxlauncher.ui.theme.NuxColors
@@ -245,6 +246,7 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        PhysicalMouseChecker.initChecker(this)
         SettingsManager.init(this)
         ControlLayoutManager.init(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && SettingsManager.settings.value.sustainedPerformanceMode) {
@@ -1122,6 +1124,17 @@ fun GameScreen(
             modifier = Modifier.fillMaxSize()
         )
 
+        // Physical Mouse Mode State (Zalith-style: auto-hide virtual pointer when physical mouse is used)
+        var isPhysicalMouseMode by remember {
+            mutableStateOf(
+                if (PhysicalMouseChecker.physicalMouseConnected) {
+                    launcherSettings.physicalMouseMode
+                } else {
+                    false
+                }
+            )
+        }
+
         // 2. Zalith-Style Touchpad & Input Controller Layer
         SwitchableMouseLayout(
             modifier = Modifier.fillMaxSize(),
@@ -1131,15 +1144,20 @@ fun GameScreen(
             controlMode = mouseControlMode,
             cursorPosition = Offset(cursorX, cursorY),
             cursorSensitivity = launcherSettings.cursorSensitivity / 100f,
+            requestPointerCapture = !launcherSettings.physicalMouseMode,
             onCursorPositionChange = { newPos ->
                 cursorX = newPos.x
                 cursorY = newPos.y
             },
+            onPhysicalMouseModeChange = { isPhysical ->
+                isPhysicalMouseMode = isPhysical
+            },
             onMouse = {
+                isPhysicalMouseMode = true
                 isControlVisible = false
             },
             onTouch = {
-                // Do not auto-show; GUI visibility is explicitly controlled by the user via the HIDE/SHOW GUI button
+                isPhysicalMouseMode = false
             },
             onTap = { pos ->
                 val winW = CallbackBridge.windowWidth
@@ -1189,8 +1207,11 @@ fun GameScreen(
             )
         }
 
-        // 3. Visible Desktop Virtual Cursor Pointer (Zalith Style - automatically visible ONLY in menus)
+        // 3. Visible Desktop Virtual Cursor Pointer (Zalith Style - automatically visible ONLY in menus, hidden when external mouse is active)
         val shouldShowPointer = if (mouseControlMode == MouseControlMode.CLICK && launcherSettings.hideMouseInClickMode) {
+            false
+        } else if (PhysicalMouseChecker.physicalMouseConnected && isPhysicalMouseMode && launcherSettings.physicalMouseMode) {
+            // Sembunyikan mouse virtual jika mouse fisik eksternal terhubung & sedang digunakan
             false
         } else {
             gameCursorMode == CURSOR_ENABLED && cursorX > 0f && cursorY > 0f
