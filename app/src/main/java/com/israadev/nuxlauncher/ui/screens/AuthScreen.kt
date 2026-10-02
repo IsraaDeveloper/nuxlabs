@@ -772,7 +772,12 @@ fun AuthScreen(
                             NuxButton(
                                 onClick = {
                                     val uid = user?.uid ?: ""
-                                    val key = licenseKey.trim()
+                                    val rawKey = licenseKey.trim().uppercase()
+                                    val key = if (!rawKey.contains("-") && rawKey.length == 16) {
+                                        "${rawKey.substring(0, 4)}-${rawKey.substring(4, 8)}-${rawKey.substring(8, 12)}-${rawKey.substring(12, 16)}"
+                                    } else {
+                                        rawKey
+                                    }
                                     if (uid.isEmpty()) {
                                         errorMessage = "Sesi akun tidak valid. Silakan login kembali."
                                         mode = AuthMode.LOGIN

@@ -708,7 +708,12 @@ fun NuxPremiumDialog(
                                         activationError = "Silakan login ke akun NUX terlebih dahulu."
                                         return@RedeemKeyCard
                                     }
-                                    val cleanKey = licenseKeyInput.trim().replace("-", "").uppercase()
+                                    val rawKey = licenseKeyInput.trim().uppercase()
+                                    val cleanKey = if (!rawKey.contains("-") && rawKey.length == 16) {
+                                        "${rawKey.substring(0, 4)}-${rawKey.substring(4, 8)}-${rawKey.substring(8, 12)}-${rawKey.substring(12, 16)}"
+                                    } else {
+                                        rawKey
+                                    }
                                     if (cleanKey.length < 8) {
                                         activationError = "Format key tidak valid."
                                         return@RedeemKeyCard
@@ -821,7 +826,12 @@ fun NuxPremiumDialog(
                                     activationError = "Silakan login ke akun NUX terlebih dahulu."
                                     return@RedeemKeyCard
                                 }
-                                val cleanKey = licenseKeyInput.trim().replace("-", "").uppercase()
+                                val rawKey = licenseKeyInput.trim().uppercase()
+                                val cleanKey = if (!rawKey.contains("-") && rawKey.length == 16) {
+                                    "${rawKey.substring(0, 4)}-${rawKey.substring(4, 8)}-${rawKey.substring(8, 12)}-${rawKey.substring(12, 16)}"
+                                } else {
+                                    rawKey
+                                }
                                 if (cleanKey.length < 8) {
                                     activationError = "Format key tidak valid."
                                     return@RedeemKeyCard
