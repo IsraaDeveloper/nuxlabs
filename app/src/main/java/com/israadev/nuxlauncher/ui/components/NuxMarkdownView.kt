@@ -12,11 +12,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,7 +26,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -77,7 +78,7 @@ fun NuxMarkdownView(
                     }
                     Spacer(modifier = Modifier.height(topPadding))
                     Text(
-                        text = buildAnnotatedContent(block.text, context),
+                        text = buildAnnotatedContent(block.text),
                         style = TextStyle(
                             fontSize = fontSize,
                             fontWeight = FontWeight.Black,
@@ -166,8 +167,7 @@ fun NuxMarkdownView(
                                     .background(borderColor, RoundedCornerShape(2.dp))
                             )
                             RenderAnnotatedText(
-                                annotated = buildAnnotatedContent(block.text, context),
-                                context = context,
+                                annotated = buildAnnotatedContent(block.text),
                                 defaultColor = Color(0xFFF1F5F9),
                                 fontSize = 9.sp,
                                 lineHeight = 13.sp
@@ -192,8 +192,7 @@ fun NuxMarkdownView(
                             lineHeight = 13.5.sp
                         )
                         RenderAnnotatedText(
-                            annotated = buildAnnotatedContent(block.text, context),
-                            context = context,
+                            annotated = buildAnnotatedContent(block.text),
                             defaultColor = Color(0xFFE2E8F0),
                             fontSize = 9.sp,
                             lineHeight = 13.5.sp
@@ -235,8 +234,7 @@ fun NuxMarkdownView(
 
                 is MarkdownBlock.Paragraph -> {
                     RenderAnnotatedText(
-                        annotated = buildAnnotatedContent(block.text, context),
-                        context = context,
+                        annotated = buildAnnotatedContent(block.text),
                         defaultColor = Color(0xFFE2E8F0),
                         fontSize = 9.sp,
                         lineHeight = 13.5.sp
@@ -272,7 +270,7 @@ fun NuxMarkdownView(
                         letterSpacing = 0.4.sp
                     )
                     Icon(
-                        imageVector = Icons.Default.OpenInNew,
+                        imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                         contentDescription = null,
                         tint = Color.White.copy(alpha = 0.85f),
                         modifier = Modifier.size(11.dp)
@@ -286,24 +284,17 @@ fun NuxMarkdownView(
 @Composable
 private fun RenderAnnotatedText(
     annotated: AnnotatedString,
-    context: Context,
     defaultColor: Color,
     fontSize: androidx.compose.ui.unit.TextUnit,
     lineHeight: androidx.compose.ui.unit.TextUnit
 ) {
-    ClickableText(
+    Text(
         text = annotated,
         style = TextStyle(
             color = defaultColor,
             fontSize = fontSize,
             lineHeight = lineHeight
-        ),
-        onClick = { offset ->
-            annotated.getStringAnnotations(tag = "URL", start = offset, end = offset)
-                .firstOrNull()?.let { annotation ->
-                    openUrl(context, annotation.item)
-                }
-        }
+        )
     )
 }
 
@@ -420,7 +411,15 @@ private fun parseMarkdownBlocks(content: String): List<MarkdownBlock> {
 /**
  * Parses bold (**), italic (*), inline code (`), and URLs (http/https) into AnnotatedString
  */
-private fun buildAnnotatedContent(rawText: String, context: Context): AnnotatedString {
+private fun buildAnnotatedContent(rawText: String): AnnotatedString {
+    val linkStyles = TextLinkStyles(
+        style = SpanStyle(
+            color = Color(0xFF38BDF8),
+            fontWeight = FontWeight.Bold,
+            textDecoration = TextDecoration.Underline
+        )
+    )
+
     return buildAnnotatedString {
         var i = 0
         val len = rawText.length
@@ -464,17 +463,10 @@ private fun buildAnnotatedContent(rawText: String, context: Context): AnnotatedS
                     if (closeParen != -1) {
                         val linkText = rawText.substring(i + 1, closeBracket)
                         val url = rawText.substring(closeBracket + 2, closeParen)
-                        pushStringAnnotation(tag = "URL", annotation = url)
-                        pushStyle(
-                            SpanStyle(
-                                color = Color(0xFF38BDF8),
-                                fontWeight = FontWeight.Bold,
-                                textDecoration = TextDecoration.Underline
-                            )
-                        )
+                        val startIdx = length
                         append(linkText)
-                        pop()
-                        pop()
+                        val endIdx = length
+                        addLink(LinkAnnotation.Url(url = url, styles = linkStyles), startIdx, endIdx)
                         i = closeParen + 1
                         continue
                     }
@@ -488,17 +480,10 @@ private fun buildAnnotatedContent(rawText: String, context: Context): AnnotatedS
                     end++
                 }
                 val url = rawText.substring(i, end)
-                pushStringAnnotation(tag = "URL", annotation = url)
-                pushStyle(
-                    SpanStyle(
-                        color = Color(0xFF38BDF8),
-                        fontWeight = FontWeight.Bold,
-                        textDecoration = TextDecoration.Underline
-                    )
-                )
+                val startIdx = length
                 append(url)
-                pop()
-                pop()
+                val endIdx = length
+                addLink(LinkAnnotation.Url(url = url, styles = linkStyles), startIdx, endIdx)
                 i = end
                 continue
             }

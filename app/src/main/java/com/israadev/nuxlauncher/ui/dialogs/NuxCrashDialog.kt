@@ -787,14 +787,14 @@ fun NuxCrashDialog(
                                                 )
                                                 Spacer(modifier = Modifier.height(10.dp))
                                                 Text(
-                                                    text = "Menghubungkan ke OpenRouter AI...",
+                                                    text = "AI sedang menganalisis crash...",
                                                     color = Color.White,
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 10.sp
                                                 )
                                                 Spacer(modifier = Modifier.height(3.dp))
                                                 Text(
-                                                    text = "Membedah log dan stacktrace Minecraft ($effectiveModel)",
+                                                    text = "Membedah log error dan metadata instance ($effectiveModel)",
                                                     color = Color(0xFF64748B),
                                                     fontSize = 8.5.sp
                                                 )
@@ -806,7 +806,7 @@ fun NuxCrashDialog(
                                             LaunchedEffect(state.fullText) {
                                                 verticalScroll.animateScrollTo(verticalScroll.maxValue)
                                             }
-                                            Column(
+                                            Box(
                                                 modifier = Modifier
                                                     .fillMaxSize()
                                                     .verticalScroll(verticalScroll)
@@ -821,13 +821,13 @@ fun NuxCrashDialog(
 
                                         is com.israadev.nuxlauncher.core.crash.AIStreamState.Completed -> {
                                             val verticalScroll = rememberScrollState()
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxSize()
-                                                    .verticalScroll(verticalScroll),
-                                                verticalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                Column(modifier = Modifier.weight(1f, fill = false)) {
+                                            Column(modifier = Modifier.fillMaxSize()) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .weight(1f)
+                                                        .verticalScroll(verticalScroll)
+                                                ) {
                                                     NuxMarkdownView(
                                                         markdownText = state.fullText,
                                                         isStreaming = false,
@@ -835,7 +835,7 @@ fun NuxCrashDialog(
                                                     )
                                                 }
 
-                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Spacer(modifier = Modifier.height(6.dp))
                                                 Row(
                                                     modifier = Modifier.fillMaxWidth(),
                                                     horizontalArrangement = Arrangement.SpaceBetween,
