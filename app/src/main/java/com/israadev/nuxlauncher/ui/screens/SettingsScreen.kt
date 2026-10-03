@@ -42,6 +42,7 @@ import java.io.File
 import java.io.FileOutputStream
 import com.israadev.nuxlauncher.core.account.AccountManager
 import com.israadev.nuxlauncher.core.auth.AuthService
+import com.israadev.nuxlauncher.core.crash.AICrashAnalyzer
 import com.israadev.nuxlauncher.core.models.LauncherSettings
 import com.israadev.nuxlauncher.core.renderer.NuxRendererRegistry
 import com.israadev.nuxlauncher.core.renderer.NuxRendererPluginManager
@@ -81,6 +82,7 @@ fun SettingsScreen(
     var showPremiumDialog by remember { mutableStateOf(false) }
     var premiumInitialPrompt by remember { mutableStateOf<String?>(null) }
 
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -111,6 +113,14 @@ fun SettingsScreen(
     var heroAnimationEnabled by remember(currentSettings.heroAnimationEnabled) { mutableStateOf(currentSettings.heroAnimationEnabled) }
     var heroAnimationVideoPath by remember(currentSettings.heroAnimationVideoPath) { mutableStateOf(currentSettings.heroAnimationVideoPath) }
     var heroAnimationRotation by remember(currentSettings.heroAnimationRotation) { mutableIntStateOf(currentSettings.heroAnimationRotation) }
+
+    var aiAutoAnalyze by remember(currentSettings.aiAutoAnalyze) { mutableStateOf(currentSettings.aiAutoAnalyze) }
+    var aiApiKey by remember(currentSettings.aiApiKey) { mutableStateOf(currentSettings.aiApiKey) }
+    var aiModel by remember(currentSettings.aiModel) { mutableStateOf(currentSettings.aiModel) }
+    var isTestingAiConnection by remember { mutableStateOf(false) }
+    var aiConnectionTestResult by remember { mutableStateOf<String?>(null) }
+    var isAiConnectionSuccess by remember { mutableStateOf(false) }
+    var showApiKeyPlaintext by remember { mutableStateOf(false) }
 
     val videoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -241,7 +251,10 @@ fun SettingsScreen(
             vsyncInZink = vsyncInZink,
             heroAnimationEnabled = heroAnimationEnabled,
             heroAnimationVideoPath = heroAnimationVideoPath,
-            heroAnimationRotation = heroAnimationRotation
+            heroAnimationRotation = heroAnimationRotation,
+            aiAutoAnalyze = aiAutoAnalyze,
+            aiApiKey = aiApiKey,
+            aiModel = aiModel
         )
         SettingsManager.updateSettings(context, updated)
     }
@@ -395,6 +408,36 @@ fun SettingsScreen(
                             Text(
                                 text = "ANIMASI BANNER",
                                 color = if (isBannerTab) Color.White else NuxColors.GrayNeutral,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 9.5.sp
+                            )
+                        }
+                    }
+
+                    // TAB 4: AI Analitik Crash
+                    val isAiTab = activeSettingsTab == "ai"
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(
+                                if (isAiTab) NuxColors.ForestGreen else Color.Transparent
+                            )
+                            .clickable { activeSettingsTab = "ai" }
+                            .padding(horizontal = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Outlined.AutoFixHigh,
+                                contentDescription = null,
+                                tint = if (isAiTab) Color.White else NuxColors.GrayNeutral,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "AI ANALITIK",
+                                color = if (isAiTab) Color.White else NuxColors.GrayNeutral,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 9.5.sp
                             )
@@ -1840,6 +1883,9 @@ fun SettingsScreen(
                                     heroAnimationEnabled = reset.heroAnimationEnabled
                                     heroAnimationVideoPath = reset.heroAnimationVideoPath
                                     heroAnimationRotation = reset.heroAnimationRotation
+                                    aiAutoAnalyze = reset.aiAutoAnalyze
+                                    aiApiKey = reset.aiApiKey
+                                    aiModel = reset.aiModel
                                     Toast.makeText(context, "Pengaturan di-reset ke default!", Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier
@@ -1877,6 +1923,484 @@ fun SettingsScreen(
                                     color = Color.White
                                 )
                             }
+                        }
+                    }
+                }
+            }
+        } else if (activeSettingsTab == "ai") {
+            // =====================================================================
+            // AI ANALITIK CRASH TAB (Konfigurasi Gemini AI / OpenRouter + Diagnostic)
+            // =====================================================================
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // LEFT CARD: Pengaturan AI Engine, Model & API Key
+                NuxCard(
+                    modifier = Modifier
+                        .weight(0.95f)
+                        .fillMaxHeight(),
+                    backgroundColor = NuxColors.SurfaceElevated,
+                    borderColor = NuxColors.CardBorder,
+                    borderWidth = 1.dp,
+                    cornerRadius = 8.dp,
+                    fillMaxHeight = true
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(12.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Section 1: Header & Switch Otomatis
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Outlined.AutoFixHigh,
+                                contentDescription = null,
+                                tint = NuxColors.ForestGreen,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "AI CRASH ANALYZER & DIAGNOSIS",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp,
+                                color = Color.White
+                            )
+                        }
+
+                        // Toggle Otomatis Analisis
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(NuxColors.SurfaceInput, RoundedCornerShape(6.dp))
+                                .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(6.dp))
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Analisis Otomatis Saat Game Crash",
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = if (aiAutoAnalyze) "Aktif: AI langsung menganalisis otomatis saat Minecraft berhenti tak terduga."
+                                           else "Nonaktif: Analisis AI hanya dijalankan manual di dialog crash.",
+                                    fontSize = 9.sp,
+                                    color = if (aiAutoAnalyze) NuxColors.MintGreen else NuxColors.GrayNeutral,
+                                    lineHeight = 12.sp
+                                )
+                            }
+                            Switch(
+                                checked = aiAutoAnalyze,
+                                onCheckedChange = {
+                                    aiAutoAnalyze = it
+                                    commitSettings()
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = NuxColors.ForestGreen,
+                                    uncheckedThumbColor = NuxColors.GrayNeutral,
+                                    uncheckedTrackColor = NuxColors.CardBorder
+                                )
+                            )
+                        }
+
+                        // Section 2: Pemilihan Model AI
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Outlined.Psychology,
+                                contentDescription = null,
+                                tint = NuxColors.MintGreen,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "MODEL KECERDASAN BUATAN (AI)",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 11.sp,
+                                color = Color.White
+                            )
+                        }
+
+                        // Model Chips / Options
+                        val models = listOf(
+                            Triple("qwen/qwen3.8-27b:free", "Qwen 2.5 72B (Free)", "Bawaan Cepat, Kuota Gratis Tak Terbatas"),
+                            Triple("google/gemini-2.0-flash-exp:free", "Gemini 2.0 Flash", "Google Generasi Terbaru, Respons Instan"),
+                            Triple("meta-llama/llama-3.3-70b-instruct:free", "Llama 3.3 70B", "Analisis Mendalam & Logika Akurat"),
+                            Triple("deepseek/deepseek-r1:free", "DeepSeek R1", "Penalaran Canggih & Solusi Mod Detail"),
+                            Triple("google/gemini-flash-1.5", "Gemini 1.5 Flash", "Standar Industri Google AI")
+                        )
+
+                        models.forEach { (mId, mTitle, mDesc) ->
+                            val isSelected = aiModel == mId
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(
+                                        if (isSelected) NuxColors.ForestGreen.copy(alpha = 0.25f)
+                                        else NuxColors.SurfaceInput
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (isSelected) NuxColors.ForestGreen else NuxColors.CardBorder,
+                                        RoundedCornerShape(6.dp)
+                                    )
+                                    .clickable {
+                                        aiModel = mId
+                                        commitSettings()
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = {
+                                        aiModel = mId
+                                        commitSettings()
+                                    },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = NuxColors.MintGreen,
+                                        unselectedColor = NuxColors.GrayNeutral
+                                    ),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = mTitle,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) Color.White else NuxColors.GrayNeutral
+                                    )
+                                    Text(
+                                        text = mDesc,
+                                        fontSize = 8.5.sp,
+                                        color = if (isSelected) NuxColors.MintGreen else NuxColors.GrayNeutral.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Section 3: API Key Configuration
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Outlined.Key,
+                                contentDescription = null,
+                                tint = NuxColors.ForestGreen,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "API KEY (OPSIONAL)",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 11.sp,
+                                color = Color.White
+                            )
+                        }
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(NuxColors.SurfaceInput, RoundedCornerShape(6.dp))
+                                .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(6.dp))
+                                .padding(10.dp)
+                        ) {
+                            Text(
+                                text = "Kunci Akses API (Google Gemini / OpenRouter):",
+                                fontSize = 9.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = NuxColors.GrayNeutral
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            NuxTextField(
+                                value = aiApiKey,
+                                onValueChange = {
+                                    aiApiKey = it
+                                    commitSettings()
+                                },
+                                placeholder = "Dikosongkan = Kuota gratis bawaan",
+                                visualTransformation = if (showApiKeyPlaintext) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                trailingContent = {
+                                    Icon(
+                                        imageVector = if (showApiKeyPlaintext) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                                        contentDescription = null,
+                                        tint = NuxColors.GrayNeutral,
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .clickable { showApiKeyPlaintext = !showApiKeyPlaintext }
+                                    )
+                                }
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Mendukung format 'AIzaSy...' dari Google AI Studio atau 'sk-or-v1-...' dari OpenRouter.",
+                                fontSize = 8.5.sp,
+                                color = NuxColors.GrayNeutral
+                            )
+                        }
+
+                        // Test Connection & Save Action
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            NuxButton(
+                                onClick = {
+                                    isTestingAiConnection = true
+                                    aiConnectionTestResult = null
+                                    scope.launch {
+                                        val res = AICrashAnalyzer.testConnection(aiApiKey, aiModel)
+                                        isTestingAiConnection = false
+                                        res.onSuccess { msg ->
+                                            isAiConnectionSuccess = true
+                                            aiConnectionTestResult = msg
+                                        }.onFailure { err ->
+                                            isAiConnectionSuccess = false
+                                            aiConnectionTestResult = err.message ?: "Koneksi gagal"
+                                        }
+                                    }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(34.dp),
+                                backgroundColor = NuxColors.SurfaceInput,
+                                borderColor = NuxColors.CardBorder,
+                                contentColor = Color.White,
+                                cornerRadius = 6.dp,
+                                enabled = !isTestingAiConnection
+                            ) {
+                                if (isTestingAiConnection) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(12.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("MENGUJI...", fontWeight = FontWeight.Bold, fontSize = 9.5.sp, color = Color.White)
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Outlined.NetworkCheck,
+                                        contentDescription = null,
+                                        tint = NuxColors.MintGreen,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("TES KONEKSI AI", fontWeight = FontWeight.Bold, fontSize = 9.5.sp, color = Color.White)
+                                }
+                            }
+
+                            NuxButton(
+                                onClick = {
+                                    commitSettings()
+                                    Toast.makeText(context, "Pengaturan AI Analitik tersimpan!", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(34.dp),
+                                backgroundColor = NuxColors.ForestGreen,
+                                contentColor = Color.White,
+                                cornerRadius = 6.dp
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Save,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("SIMPAN PENGATURAN", fontWeight = FontWeight.Bold, fontSize = 9.5.sp, color = Color.White)
+                            }
+                        }
+
+                        // Test Result Badge
+                        if (aiConnectionTestResult != null) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(
+                                        if (isAiConnectionSuccess) NuxColors.MintGreen.copy(alpha = 0.15f)
+                                        else NuxColors.Coral.copy(alpha = 0.15f)
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (isAiConnectionSuccess) NuxColors.MintGreen.copy(alpha = 0.4f)
+                                        else NuxColors.Coral.copy(alpha = 0.4f),
+                                        RoundedCornerShape(6.dp)
+                                    )
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (isAiConnectionSuccess) Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline,
+                                    contentDescription = null,
+                                    tint = if (isAiConnectionSuccess) NuxColors.MintGreen else NuxColors.Coral,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = aiConnectionTestResult!!,
+                                    fontSize = 9.sp,
+                                    color = if (isAiConnectionSuccess) Color.White else NuxColors.Coral,
+                                    lineHeight = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // RIGHT CARD: Status Sistem, Panduan & Keunggulan AI
+                NuxCard(
+                    modifier = Modifier
+                        .weight(1.05f)
+                        .fillMaxHeight(),
+                    backgroundColor = NuxColors.SurfaceElevated,
+                    borderColor = NuxColors.CardBorder,
+                    borderWidth = 1.dp,
+                    cornerRadius = 8.dp,
+                    fillMaxHeight = true
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(12.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Header Right
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = null,
+                                    tint = NuxColors.ForestGreen,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "STATUS SISTEM & KAPABILITAS",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp,
+                                    color = Color.White
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .background(NuxColors.MintGreen.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "ONLINE & SIAP",
+                                    color = NuxColors.MintGreen,
+                                    fontSize = 8.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // Penjelasan Kapabilitas AI
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(NuxColors.SurfaceInput, RoundedCornerShape(6.dp))
+                                .border(1.dp, NuxColors.CardBorder, RoundedCornerShape(6.dp))
+                                .padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Apa Saja yang Dapat Didiagnosis AI?",
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+
+                            val features = listOf(
+                                "📦 Mod Inkompatibel & Konflik Versi" to "Mendeteksi secara akurat mod mana yang menyebabkan game crash serta dependensi yang hilang.",
+                                "🧠 Alokasi RAM & OutOfMemoryError" to "Menganalisis apakah RAM sistem kurang atau heap size Java tidak mencukupi untuk modpack.",
+                                "🎮 GPU Driver, Vulkan & Zink Shader" to "Mendiagnosis crash GL/GLES, masalah Turnip driver, atau kesalahan kompilasi shader Minecraft.",
+                                "☕ Java Runtime & ClassNotFound" to "Memverifikasi kecocokan versi Java (Java 8, 17, 21) dengan versi Fabric/Forge yang dimainkan.",
+                                "⚡ Solusi Perbaikan Instan" to "Memberikan langkah praktis 1-2-3 yang langsung dapat diterapkan pemain tanpa perlu membaca ribuan baris log mentah."
+                            )
+
+                            features.forEach { (title, desc) ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(top = 2.dp)
+                                            .size(5.dp)
+                                            .background(NuxColors.MintGreen, CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            text = title,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = desc,
+                                            fontSize = 8.5.sp,
+                                            color = NuxColors.GrayNeutral,
+                                            lineHeight = 11.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Tips Dapatkan API Key Gratis
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(NuxColors.ForestGreen.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+                                .border(1.dp, NuxColors.ForestGreen.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
+                                .padding(10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Lightbulb,
+                                    contentDescription = null,
+                                    tint = NuxColors.MintGreen,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Ingin Menggunakan API Key Pribadi?",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NuxColors.MintGreen
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "1. Buka Google AI Studio di browser Anda (ai.google.dev)\n" +
+                                       "2. Buat API Key gratis dengan akun Google Anda\n" +
+                                       "3. Salin kunci (awalan 'AIzaSy...') lalu tempel di kolom API Key di sebelah kiri\n" +
+                                       "4. Dapatkan kuota cepat pribadi tanpa antrean!",
+                                fontSize = 8.5.sp,
+                                color = Color.White.copy(alpha = 0.85f),
+                                lineHeight = 12.sp
+                            )
                         }
                     }
                 }

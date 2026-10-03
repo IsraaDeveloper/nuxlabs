@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -52,6 +53,34 @@ fun NuxCrashDialog(
     val coroutineScope = rememberCoroutineScope()
     var isUploading by remember { mutableStateOf(false) }
     var uploadSuccessUrl by remember { mutableStateOf<String?>(null) }
+
+    val settings by com.israadev.nuxlauncher.core.settings.SettingsManager.settings.collectAsState()
+    var aiState by remember { mutableStateOf<com.israadev.nuxlauncher.core.crash.AIStreamState>(com.israadev.nuxlauncher.core.crash.AIStreamState.Idle) }
+    var rightViewMode by remember { mutableStateOf("ai") } // "ai" or "raw"
+    val isAutoAnalyze = settings.aiAutoAnalyze
+
+    fun runAiAnalysis() {
+        rightViewMode = "ai"
+        coroutineScope.launch {
+            com.israadev.nuxlauncher.core.crash.AICrashAnalyzer.analyzeCrashStreaming(crashInfo, settings).collect { state ->
+                aiState = state
+            }
+        }
+    }
+
+    LaunchedEffect(crashInfo, isAutoAnalyze) {
+        if (isAutoAnalyze) {
+            runAiAnalysis()
+        }
+    }
+
+    var isCursorBlinkVisible by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(500)
+            isCursorBlinkVisible = !isCursorBlinkVisible
+        }
+    }
 
     val logFile = remember(crashInfo.fullLogPath) {
         if (crashInfo.fullLogPath.isNotBlank()) File(crashInfo.fullLogPath)
@@ -487,23 +516,40 @@ fun NuxCrashDialog(
                     }
 
                     // ==========================================
-                    // RIGHT COLUMN: Terminal Log Snippet Viewer
+                    // RIGHT COLUMN: AI Crash Analyst (Realtime Streaming)
                     // ==========================================
+                    val effectiveModel = com.israadev.nuxlauncher.core.crash.AICrashAnalyzer.getEffectiveModel(settings)
+                    val activeAiText = when (val s = aiState) {
+                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Streaming -> s.fullText
+                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Completed -> s.fullText
+                        else -> ""
+                    }
+
                     Box(
                         modifier = Modifier
                             .weight(1.2f)
                             .fillMaxHeight()
                             .clip(cardShape)
-                            .background(Color(0xFF0A0C10))
-                            .border(1.dp, Color(0x26FFFFFF), cardShape)
+                            .background(Color(0xFF080B11))
+                            .border(
+                                1.dp,
+                                Brush.linearGradient(
+                                    listOf(
+                                        Color(0x3310B981),
+                                        Color(0x2238BDF8),
+                                        Color(0x1410B981)
+                                    )
+                                ),
+                                cardShape
+                            )
                             .padding(8.dp)
                     ) {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            // Terminal Header Bar with Dots
+                            // Header Bar with Dots, AI Badge & Controls
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                                    .padding(horizontal = 4.dp, vertical = 3.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -514,57 +560,321 @@ fun NuxCrashDialog(
                                     Box(modifier = Modifier.size(7.dp).background(Color(0xFFEF4444), CircleShape))
                                     Box(modifier = Modifier.size(7.dp).background(Color(0xFFF59E0B), CircleShape))
                                     Box(modifier = Modifier.size(7.dp).background(Color(0xFF10B981), CircleShape))
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+
                                     Text(
-                                        text = "TERMINAL STACKTRACE",
-                                        color = Color(0xFF71717A),
-                                        fontWeight = FontWeight.Bold,
+                                        text = "AI CRASH ANALYST",
+                                        color = Color(0xFF38BDF8),
+                                        fontWeight = FontWeight.Black,
                                         fontSize = 9.sp,
                                         letterSpacing = 0.8.sp
                                     )
+
+                                    // Status Pill
+                                    val (badgeText, badgeBg, badgeColor) = when (aiState) {
+                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Idle -> Triple("STANDBY", Color(0x2294A3B8), Color(0xFF94A3B8))
+                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Connecting -> Triple("CONNECTING...", Color(0x33F59E0B), Color(0xFFFBBF24))
+                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Streaming -> Triple("LIVE STREAMING", Color(0x3310B981), Color(0xFF34D399))
+                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Completed -> Triple("SELESAI", Color(0x2610B981), Color(0xFF4ADE80))
+                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Error -> Triple("ERROR", Color(0x33EF4444), Color(0xFFF87171))
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(badgeBg)
+                                            .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                    ) {
+                                        Text(
+                                            text = badgeText,
+                                            color = badgeColor,
+                                            fontSize = 7.5.sp,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                    }
                                 }
 
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(if (crashInfo.crashReportPath != null) Color(0xFFF43F5E).copy(alpha = 0.2f) else Color(0xFF27272A))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                // Quick Actions (Toggle Raw Log, Retry, Copy)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Text(
-                                        text = if (crashInfo.crashReportPath != null) "CRASH REPORT" else "LATEST LOG",
-                                        color = if (crashInfo.crashReportPath != null) Color(0xFFFDA4AF) else Color(0xFFA1A1AA),
-                                        fontSize = 8.5.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                    // Toggle Raw Log
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color(0xFF1E293B))
+                                            .clickable {
+                                                rightViewMode = if (rightViewMode == "ai") "raw" else "ai"
+                                            }
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = if (rightViewMode == "ai") "LOG MENTAH" else "AI ANALISIS",
+                                            color = if (rightViewMode == "ai") Color(0xFF94A3B8) else Color(0xFF38BDF8),
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
+                                    // Refresh / Retry AI
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color(0xFF1E293B))
+                                            .clickable { runAiAnalysis() },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = "Analisis Ulang",
+                                            tint = Color(0xFF38BDF8),
+                                            modifier = Modifier.size(11.dp)
+                                        )
+                                    }
+
+                                    // Copy AI Analysis / Log
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(Color(0xFF1E293B))
+                                            .clickable {
+                                                val textToCopy = if (rightViewMode == "ai" && activeAiText.isNotBlank()) activeAiText else crashInfo.logSnippet
+                                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                cm.setPrimaryClip(ClipData.newPlainText("Crash Analysis", textToCopy))
+                                                Toast.makeText(context, "Disalin ke papan klip!", Toast.LENGTH_SHORT).show()
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ContentCopy,
+                                            contentDescription = "Salin",
+                                            tint = Color(0xFFA1A1AA),
+                                            modifier = Modifier.size(11.dp)
+                                        )
+                                    }
                                 }
                             }
 
                             Spacer(modifier = Modifier.height(4.dp))
 
-                            // Terminal Content Core
+                            // Content Box
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .weight(1f)
                                     .clip(innerShape)
-                                    .background(Color(0xFF060709))
-                                    .border(1.dp, Color(0x14FFFFFF), innerShape)
+                                    .background(Color(0xFF040608))
+                                    .border(1.dp, Color(0x1AFFFFFF), innerShape)
                                     .padding(8.dp)
                             ) {
-                                val verticalScroll = rememberScrollState()
-                                val horizontalScroll = rememberScrollState()
+                                if (rightViewMode == "raw") {
+                                    // View Raw Terminal Log
+                                    val verticalScroll = rememberScrollState()
+                                    val horizontalScroll = rememberScrollState()
+                                    Text(
+                                        text = crashInfo.logSnippet,
+                                        color = Color(0xFFCBD5E1),
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 9.5.sp,
+                                        lineHeight = 13.5.sp,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .verticalScroll(verticalScroll)
+                                            .horizontalScroll(horizontalScroll)
+                                    )
+                                } else {
+                                    // View AI Analysis
+                                    when (val state = aiState) {
+                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Idle -> {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(12.dp),
+                                                verticalArrangement = Arrangement.Center,
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(36.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(0x2210B981))
+                                                        .border(1.dp, Color(0x4410B981), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text("⚡", fontSize = 16.sp)
+                                                }
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    text = "DIAGNOSA CRASH OTOMATIS",
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 11.sp,
+                                                    color = Color.White
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "AI akan menganalisis cuplikan error game untuk mendeteksi penyebab pasti & solusi perbaikan.",
+                                                    color = Color(0xFF94A3B8),
+                                                    fontSize = 9.sp,
+                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                                    lineHeight = 12.sp
+                                                )
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                NuxButton(
+                                                    onClick = { runAiAnalysis() },
+                                                    backgroundColor = Color(0xFF10B981),
+                                                    contentColor = Color.Black,
+                                                    cornerRadius = 6.dp,
+                                                    modifier = Modifier.height(30.dp)
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        Text("✨", fontSize = 10.sp)
+                                                        Text("MULAI ANALISIS DENGAN AI", fontWeight = FontWeight.Black, fontSize = 9.sp)
+                                                    }
+                                                }
+                                            }
+                                        }
 
-                                Text(
-                                    text = crashInfo.logSnippet,
-                                    color = Color(0xFFE4E4E7),
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 10.sp,
-                                    lineHeight = 14.sp,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .verticalScroll(verticalScroll)
-                                        .horizontalScroll(horizontalScroll)
-                                )
+                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Connecting -> {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(16.dp),
+                                                verticalArrangement = Arrangement.Center,
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(24.dp),
+                                                    color = Color(0xFF38BDF8),
+                                                    strokeWidth = 2.dp
+                                                )
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                Text(
+                                                    text = "Menghubungkan ke OpenRouter AI...",
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 10.sp
+                                                )
+                                                Spacer(modifier = Modifier.height(3.dp))
+                                                Text(
+                                                    text = "Membedah log dan stacktrace Minecraft ($effectiveModel)",
+                                                    color = Color(0xFF64748B),
+                                                    fontSize = 8.5.sp
+                                                )
+                                            }
+                                        }
+
+                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Streaming -> {
+                                            val verticalScroll = rememberScrollState()
+                                            LaunchedEffect(state.fullText) {
+                                                verticalScroll.animateScrollTo(verticalScroll.maxValue)
+                                            }
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .verticalScroll(verticalScroll)
+                                            ) {
+                                                Text(
+                                                    text = buildString {
+                                                        append(state.fullText)
+                                                        if (isCursorBlinkVisible) append(" ▌")
+                                                    },
+                                                    color = Color(0xFFE2E8F0),
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontSize = 9.5.sp,
+                                                    lineHeight = 14.sp
+                                                )
+                                            }
+                                        }
+
+                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Completed -> {
+                                            val verticalScroll = rememberScrollState()
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .verticalScroll(verticalScroll),
+                                                verticalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Text(
+                                                    text = state.fullText,
+                                                    color = Color(0xFFE2E8F0),
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontSize = 9.5.sp,
+                                                    lineHeight = 14.sp
+                                                )
+
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = "• Model: $effectiveModel",
+                                                        fontSize = 8.sp,
+                                                        color = Color(0xFF64748B)
+                                                    )
+                                                    Text(
+                                                        text = "Analisis Selesai ✓",
+                                                        fontSize = 8.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color(0xFF10B981)
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.Error -> {
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(12.dp),
+                                                verticalArrangement = Arrangement.Center,
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(32.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(0x33EF4444)),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text("⚠️", fontSize = 14.sp)
+                                                }
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    text = "Gagal Menganalisis Log",
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 11.sp,
+                                                    color = Color(0xFFF87171)
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = state.errorMessage,
+                                                    color = Color(0xFFCBD5E1),
+                                                    fontSize = 8.5.sp,
+                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                                    lineHeight = 11.5.sp
+                                                )
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                NuxButton(
+                                                    onClick = { runAiAnalysis() },
+                                                    backgroundColor = Color(0xFF334155),
+                                                    contentColor = Color.White,
+                                                    cornerRadius = 6.dp,
+                                                    modifier = Modifier.height(28.dp)
+                                                ) {
+                                                    Text("COBA LAGI", fontWeight = FontWeight.Bold, fontSize = 8.5.sp)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
