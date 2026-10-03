@@ -221,7 +221,7 @@ object JavaRuntimeManager {
             onProgress(0.96f, "Memverifikasi izin sistem OpenJDK...")
             ensureExecutablePermissions(destDir)
             runCatching {
-                File(destDir, ".nux_perm_v2").writeText("1.0.8")
+                File(destDir, ".nux_perm_v2").writeText("1.0.9")
             }
 
             if (!isRuntimeInstalled(context, runtimeName)) {

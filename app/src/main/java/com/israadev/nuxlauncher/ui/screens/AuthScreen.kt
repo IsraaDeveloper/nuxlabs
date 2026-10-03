@@ -638,7 +638,7 @@ fun AuthScreen(
                                     color = Color(0xFF4ADE80)
                                 )
                                 Text(
-                                    text = user?.email ?: email,
+                                    text = com.israadev.nuxlauncher.core.utils.PrivacyMasker.maskEmail(user?.email ?: email),
                                     fontSize = 10.sp,
                                     color = Color(0xFF94A3B8)
                                 )

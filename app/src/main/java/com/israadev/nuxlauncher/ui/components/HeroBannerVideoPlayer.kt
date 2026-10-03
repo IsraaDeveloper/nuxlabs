@@ -96,8 +96,17 @@ fun HeroBannerVideoPlayer(
                                     setSurface(surface)
                                     setDataSource(videoPath)
                                     isLooping = true
+
+                                    // Matikan seluruh output audio secara permanen agar tidak bersuara saat screen recording
+                                    val audioAttrs = android.media.AudioAttributes.Builder()
+                                        .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                        .build()
+                                    setAudioAttributes(audioAttrs)
                                     setVolume(0f, 0f)
-                                    setOnVideoSizeChangedListener { _, width, height ->
+
+                                    setOnVideoSizeChangedListener { mp, width, height ->
+                                        mp.setVolume(0f, 0f)
                                         if (width > 0 && height > 0) {
                                             videoNaturalW = width
                                             videoNaturalH = height
@@ -106,15 +115,24 @@ fun HeroBannerVideoPlayer(
                                     }
                                     setOnPreparedListener { mp ->
                                         try {
+                                            mp.setVolume(0f, 0f)
                                             if (mp.videoWidth > 0 && mp.videoHeight > 0) {
                                                 videoNaturalW = mp.videoWidth
                                                 videoNaturalH = mp.videoHeight
                                                 applyTransform(animatedRotation)
                                             }
                                             mp.start()
+                                            mp.setVolume(0f, 0f)
                                         } catch (e: Exception) {
                                             e.printStackTrace()
                                         }
+                                    }
+                                    setOnInfoListener { mp, _, _ ->
+                                        mp.setVolume(0f, 0f)
+                                        false
+                                    }
+                                    setOnSeekCompleteListener { mp ->
+                                        mp.setVolume(0f, 0f)
                                     }
                                     prepareAsync()
                                 }

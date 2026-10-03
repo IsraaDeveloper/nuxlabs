@@ -100,19 +100,7 @@ private fun formatExpiry(expiresAt: String?): Pair<String, String> {
 }
 
 private fun maskKey(key: String?): String {
-    if (key.isNullOrBlank()) return "VIP-AKTIF-SERVER"
-    val clean = key.trim().uppercase()
-    if (clean.length < 8) return clean
-    return if (clean.contains("-")) {
-        val parts = clean.split("-")
-        if (parts.size >= 4) {
-            "${parts[0]}-••••-••••-${parts.last()}"
-        } else {
-            "${clean.take(4)}-••••-${clean.takeLast(4)}"
-        }
-    } else {
-        "${clean.take(4)}••••${clean.takeLast(4)}"
-    }
+    return com.israadev.nuxlauncher.core.utils.PrivacyMasker.maskKey(key)
 }
 
 @Composable
