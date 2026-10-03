@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.israadev.nuxlauncher.BuildConfig
 import com.israadev.nuxlauncher.core.models.LauncherSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -26,13 +27,8 @@ sealed class AIStreamState {
 }
 
 object AICrashAnalyzer {
-    private val DEFAULT_FALLBACK_KEY: String by lazy {
-        try {
-            String(android.util.Base64.decode("c2stb3ItdjEtYmZiNjRiZTQyMWJlNTU0NjUwY2NlYjAzYjIwMzMyNDAwM2M4MWZmYjIxMmQ1N2Q0ZWM3Y2JlMWVmZWQzMDQ0OQ==", android.util.Base64.NO_WRAP), Charsets.UTF_8)
-        } catch (_: Exception) {
-            ""
-        }
-    }
+    val DEFAULT_FALLBACK_KEY: String
+        get() = BuildConfig.DEFAULT_AI_API_KEY.trim()
     const val DEFAULT_MODEL = "qwen/qwen3.8-27b:free"
     private const val OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 

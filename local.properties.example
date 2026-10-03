@@ -3,3 +3,6 @@ sdk.dir=C\:\\Users\\YourUsername\\AppData\\Local\\Android\\Sdk
 
 ## NUX Backend Server URL (Optional: Leave empty for standalone/offline build)
 # nux.server.url=https://your-custom-backend.com
+
+## OpenRouter / Gemini AI API Key (Optional: for AI Crash Diagnostics fallback)
+# nux.ai.api.key=sk-or-v1-your-key-here
