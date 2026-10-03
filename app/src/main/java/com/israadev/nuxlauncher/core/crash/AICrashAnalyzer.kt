@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import android.content.Context
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -24,6 +25,7 @@ sealed class AIStreamState {
     data class Streaming(val fullText: String, val chunk: String) : AIStreamState()
     data class Completed(val fullText: String) : AIStreamState()
     data class Error(val errorMessage: String) : AIStreamState()
+    object QuotaExceeded : AIStreamState()
 }
 
 object AICrashAnalyzer {
@@ -143,9 +145,19 @@ object AICrashAnalyzer {
      * Menganalisis crash log secara real-time melalui Server-Sent Events (SSE) streaming.
      */
     fun analyzeCrashStreaming(
+        context: Context? = null,
         crashInfo: GameCrashInfo,
         settings: LauncherSettings?
     ): Flow<AIStreamState> = flow {
+        if (context != null && !AICrashQuotaManager.hasQuota(context, settings)) {
+            emit(AIStreamState.QuotaExceeded)
+            return@flow
+        }
+
+        if (context != null) {
+            AICrashQuotaManager.consumeQuota(context, settings)
+        }
+
         emit(AIStreamState.Connecting)
 
         val apiKey = getEffectiveApiKey(settings)

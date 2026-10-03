@@ -59,11 +59,29 @@ fun NuxCrashDialog(
     var rightViewMode by remember { mutableStateOf("ai") } // "ai" or "raw"
     val isAutoAnalyze = settings.aiAutoAnalyze
 
+    var remainingQuota by remember {
+        mutableStateOf(com.israadev.nuxlauncher.core.crash.AICrashQuotaManager.getRemainingQuota(context, settings))
+    }
+
+    LaunchedEffect(settings.aiApiKey) {
+        remainingQuota = com.israadev.nuxlauncher.core.crash.AICrashQuotaManager.getRemainingQuota(context, settings)
+    }
+
     fun runAiAnalysis() {
         rightViewMode = "ai"
+        if (!com.israadev.nuxlauncher.core.crash.AICrashQuotaManager.hasQuota(context, settings)) {
+            aiState = com.israadev.nuxlauncher.core.crash.AIStreamState.QuotaExceeded
+            return
+        }
         coroutineScope.launch {
-            com.israadev.nuxlauncher.core.crash.AICrashAnalyzer.analyzeCrashStreaming(crashInfo, settings).collect { state ->
+            com.israadev.nuxlauncher.core.crash.AICrashAnalyzer.analyzeCrashStreaming(context, crashInfo, settings).collect { state ->
                 aiState = state
+                if (state is com.israadev.nuxlauncher.core.crash.AIStreamState.Connecting ||
+                    state is com.israadev.nuxlauncher.core.crash.AIStreamState.Streaming ||
+                    state is com.israadev.nuxlauncher.core.crash.AIStreamState.Completed
+                ) {
+                    remainingQuota = com.israadev.nuxlauncher.core.crash.AICrashQuotaManager.getRemainingQuota(context, settings)
+                }
             }
         }
     }
@@ -609,6 +627,7 @@ fun NuxCrashDialog(
                                         is com.israadev.nuxlauncher.core.crash.AIStreamState.Streaming -> Triple("LIVE STREAMING", Color(0x3310B981), Color(0xFF34D399))
                                         is com.israadev.nuxlauncher.core.crash.AIStreamState.Completed -> Triple("SELESAI", Color(0x2610B981), Color(0xFF4ADE80))
                                         is com.israadev.nuxlauncher.core.crash.AIStreamState.Error -> Triple("ERROR", Color(0x33EF4444), Color(0xFFF87171))
+                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.QuotaExceeded -> Triple("LIMIT HABIS", Color(0x33F43F5E), Color(0xFFF43F5E))
                                     }
 
                                     Box(
@@ -620,6 +639,28 @@ fun NuxCrashDialog(
                                         Text(
                                             text = badgeText,
                                             color = badgeColor,
+                                            fontSize = 7.5.sp,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                    }
+
+                                    // Quota Badge
+                                    val quotaText = if (remainingQuota < 0) "UNLIMITED" else "$remainingQuota/5"
+                                    val quotaColor = when {
+                                        remainingQuota < 0 -> Color(0xFF38BDF8)
+                                        remainingQuota > 1 -> Color(0xFF10B981)
+                                        remainingQuota == 1 -> Color(0xFFFBBF24)
+                                        else -> Color(0xFFF43F5E)
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(quotaColor.copy(alpha = 0.15f))
+                                            .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                    ) {
+                                        Text(
+                                            text = "KUOTA: $quotaText",
+                                            color = quotaColor,
                                             fontSize = 7.5.sp,
                                             fontWeight = FontWeight.Black
                                         )
@@ -732,22 +773,25 @@ fun NuxCrashDialog(
                                                     modifier = Modifier
                                                         .size(36.dp)
                                                         .clip(CircleShape)
-                                                        .background(Color(0x2210B981))
-                                                        .border(1.dp, Color(0x4410B981), CircleShape),
+                                                        .background(if (remainingQuota == 0) Color(0x22F43F5E) else Color(0x2210B981))
+                                                        .border(1.dp, if (remainingQuota == 0) Color(0x44F43F5E) else Color(0x4410B981), CircleShape),
                                                     contentAlignment = Alignment.Center
                                                 ) {
-                                                    Text("⚡", fontSize = 16.sp)
+                                                    Text(if (remainingQuota == 0) "⏱️" else "⚡", fontSize = 16.sp)
                                                 }
                                                 Spacer(modifier = Modifier.height(8.dp))
                                                 Text(
-                                                    text = "DIAGNOSA CRASH OTOMATIS",
+                                                    text = if (remainingQuota == 0) "KUOTA HARIAN AI HABIS" else "DIAGNOSA CRASH OTOMATIS",
                                                     fontWeight = FontWeight.Black,
                                                     fontSize = 11.sp,
                                                     color = Color.White
                                                 )
                                                 Spacer(modifier = Modifier.height(4.dp))
                                                 Text(
-                                                    text = "AI akan menganalisis cuplikan error game untuk mendeteksi penyebab pasti & solusi perbaikan.",
+                                                    text = if (remainingQuota == 0)
+                                                        "Batas 5 kali penggunaan AI hari ini telah tercapai. Kuota di-reset besok atau salin log ke Discord kami."
+                                                    else
+                                                        "AI akan menganalisis cuplikan error game untuk mendeteksi penyebab pasti & solusi perbaikan.",
                                                     color = Color(0xFF94A3B8),
                                                     fontSize = 9.sp,
                                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -756,8 +800,8 @@ fun NuxCrashDialog(
                                                 Spacer(modifier = Modifier.height(10.dp))
                                                 NuxButton(
                                                     onClick = { runAiAnalysis() },
-                                                    backgroundColor = Color(0xFF10B981),
-                                                    contentColor = Color.Black,
+                                                    backgroundColor = if (remainingQuota == 0) Color(0xFFF43F5E) else Color(0xFF10B981),
+                                                    contentColor = if (remainingQuota == 0) Color.White else Color.Black,
                                                     cornerRadius = 6.dp,
                                                     modifier = Modifier.height(30.dp)
                                                 ) {
@@ -765,8 +809,12 @@ fun NuxCrashDialog(
                                                         verticalAlignment = Alignment.CenterVertically,
                                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                     ) {
-                                                        Text("✨", fontSize = 10.sp)
-                                                        Text("MULAI ANALISIS DENGAN AI", fontWeight = FontWeight.Black, fontSize = 9.sp)
+                                                        Text(if (remainingQuota == 0) "⚠️" else "✨", fontSize = 10.sp)
+                                                        Text(
+                                                            text = if (remainingQuota == 0) "LIHAT SOLUSI & TIKET DISCORD" else "MULAI ANALISIS DENGAN AI",
+                                                            fontWeight = FontWeight.Black,
+                                                            fontSize = 9.sp
+                                                        )
                                                     }
                                                 }
                                             }
@@ -898,6 +946,131 @@ fun NuxCrashDialog(
                                                 ) {
                                                     Text("COBA LAGI", fontWeight = FontWeight.Bold, fontSize = 8.5.sp)
                                                 }
+                                            }
+                                        }
+
+                                        is com.israadev.nuxlauncher.core.crash.AIStreamState.QuotaExceeded -> {
+                                            val verticalScroll = rememberScrollState()
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .verticalScroll(verticalScroll)
+                                                    .padding(12.dp),
+                                                verticalArrangement = Arrangement.Center,
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(36.dp)
+                                                        .clip(CircleShape)
+                                                        .background(Color(0x22F43F5E))
+                                                        .border(1.dp, Color(0x55F43F5E), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text("⏱️", fontSize = 16.sp)
+                                                }
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    text = "KUOTA HARIAN AI TELAH HABIS",
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 11.sp,
+                                                    color = Color(0xFFF43F5E),
+                                                    letterSpacing = 0.5.sp
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = "Batas penggunaan analisis AI gratis adalah 5 kali per hari. Kuota harian Anda akan di-reset otomatis besok.",
+                                                    color = Color(0xFFCBD5E1),
+                                                    fontSize = 9.sp,
+                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                                    lineHeight = 12.5.sp
+                                                )
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clip(RoundedCornerShape(8.dp))
+                                                        .background(Color(0xFF0F172A))
+                                                        .border(1.dp, Color(0x3338BDF8), RoundedCornerShape(8.dp))
+                                                        .padding(10.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "Silakan klik tombol SALIN LOG di bawah, lalu buka tiket pengaduan di server Discord resmi kami agar tim developer atau komunitas dapat membantu mendiagnosa penyebab crash game Anda.",
+                                                        color = Color(0xFF93C5FD),
+                                                        fontSize = 8.5.sp,
+                                                        lineHeight = 12.sp,
+                                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                Row(
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    // Tombol Salin Log
+                                                    NuxButton(
+                                                        onClick = {
+                                                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                                            val textToCopy = if (crashInfo.fullLogPath.isNotBlank() && logFile.exists()) {
+                                                                try { logFile.readText() } catch (_: Exception) { crashInfo.logSnippet }
+                                                            } else {
+                                                                crashInfo.logSnippet
+                                                            }
+                                                            cm.setPrimaryClip(ClipData.newPlainText("Crash Log", textToCopy))
+                                                            Toast.makeText(context, "Log crash berhasil disalin ke papan klip!", Toast.LENGTH_SHORT).show()
+                                                        },
+                                                        backgroundColor = Color(0xFF334155),
+                                                        contentColor = Color.White,
+                                                        cornerRadius = 6.dp,
+                                                        modifier = Modifier.height(30.dp)
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.ContentCopy,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.size(11.dp),
+                                                                tint = Color.White
+                                                            )
+                                                            Text("SALIN LOG", fontWeight = FontWeight.Bold, fontSize = 8.5.sp)
+                                                        }
+                                                    }
+
+                                                    // Tombol Open Ticket Discord
+                                                    NuxButton(
+                                                        onClick = {
+                                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://discord.gg/UW4wBQg6X5"))
+                                                            context.startActivity(intent)
+                                                        },
+                                                        backgroundColor = Color(0xFF5865F2),
+                                                        contentColor = Color.White,
+                                                        cornerRadius = 6.dp,
+                                                        modifier = Modifier.height(30.dp)
+                                                    ) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.OpenInNew,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.size(11.dp),
+                                                                tint = Color.White
+                                                            )
+                                                            Text("OPEN TICKET DISCORD", fontWeight = FontWeight.Black, fontSize = 8.5.sp)
+                                                        }
+                                                    }
+                                                }
+
+                                                Spacer(modifier = Modifier.height(10.dp))
+                                                Text(
+                                                    text = "💡 Tips: Anda dapat memasukkan API Key pribadi (OpenRouter / Gemini) di Pengaturan > Integrasi AI untuk penggunaan tanpa batas.",
+                                                    fontSize = 7.5.sp,
+                                                    color = Color(0xFF64748B),
+                                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                )
                                             }
                                         }
                                     }
