@@ -2030,13 +2030,13 @@ fun SettingsScreen(
                             )
                         }
 
-                        // Model Chips / Options
+                        // Model Chips / Options (Hanya Model Gratis OpenRouter)
                         val models = listOf(
                             Triple("qwen/qwen3.8-27b:free", "Qwen 2.5 72B (Free)", "Bawaan Cepat, Kuota Gratis Tak Terbatas"),
-                            Triple("google/gemini-2.0-flash-exp:free", "Gemini 2.0 Flash", "Google Generasi Terbaru, Respons Instan"),
-                            Triple("meta-llama/llama-3.3-70b-instruct:free", "Llama 3.3 70B", "Analisis Mendalam & Logika Akurat"),
-                            Triple("deepseek/deepseek-r1:free", "DeepSeek R1", "Penalaran Canggih & Solusi Mod Detail"),
-                            Triple("google/gemini-flash-1.5", "Gemini 1.5 Flash", "Standar Industri Google AI")
+                            Triple("meta-llama/llama-3.3-70b-instruct:free", "Llama 3.3 70B (Free)", "Analisis Mendalam & Logika Akurat"),
+                            Triple("google/gemini-2.0-flash-exp:free", "Gemini 2.0 Flash (Free)", "Google Generasi Terbaru, Respons Instan"),
+                            Triple("deepseek/deepseek-r1:free", "DeepSeek R1 (Free)", "Penalaran Canggih & Solusi Mod Detail"),
+                            Triple("mistralai/mistral-small-24b-instruct-2501:free", "Mistral Small 24B (Free)", "Efisien & Diagnostik Log Tepat")
                         )
 
                         models.forEach { (mId, mTitle, mDesc) ->
@@ -2115,7 +2115,7 @@ fun SettingsScreen(
                                 .padding(10.dp)
                         ) {
                             Text(
-                                text = "Kunci Akses API (Google Gemini / OpenRouter):",
+                                text = "Kunci Akses API (OpenRouter API Key):",
                                 fontSize = 9.5.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = NuxColors.GrayNeutral
@@ -2128,7 +2128,7 @@ fun SettingsScreen(
                                     aiApiKey = it
                                     commitSettings()
                                 },
-                                placeholder = "Dikosongkan = Kuota gratis bawaan",
+                                placeholder = "Dikosongkan = Kuota gratis bawaan launcher",
                                 visualTransformation = if (showApiKeyPlaintext) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                                 trailingContent = {
                                     Icon(
@@ -2144,7 +2144,7 @@ fun SettingsScreen(
 
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Mendukung format 'AIzaSy...' dari Google AI Studio atau 'sk-or-v1-...' dari OpenRouter.",
+                                text = "Mendukung format 'sk-or-v1-...' dari OpenRouter. Jika dikosongkan, launcher otomatis menggunakan kuota gratis bawaan.",
                                 fontSize = 8.5.sp,
                                 color = NuxColors.GrayNeutral
                             )
@@ -2393,10 +2393,10 @@ fun SettingsScreen(
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "1. Buka Google AI Studio di browser Anda (ai.google.dev)\n" +
-                                       "2. Buat API Key gratis dengan akun Google Anda\n" +
-                                       "3. Salin kunci (awalan 'AIzaSy...') lalu tempel di kolom API Key di sebelah kiri\n" +
-                                       "4. Dapatkan kuota cepat pribadi tanpa antrean!",
+                                text = "1. Buka openrouter.ai di browser Anda dan daftar/login\n" +
+                                       "2. Buat API Key di menu 'Keys' (awalan 'sk-or-v1-...')\n" +
+                                       "3. Salin kunci lalu tempel di kolom API Key di sebelah kiri\n" +
+                                       "4. Dapatkan kuota pribadi super cepat dengan model AI terbaik!",
                                 fontSize = 8.5.sp,
                                 color = Color.White.copy(alpha = 0.85f),
                                 lineHeight = 12.sp
