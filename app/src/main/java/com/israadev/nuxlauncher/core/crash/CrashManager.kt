@@ -20,7 +20,10 @@ data class GameCrashInfo(
     val logSnippet: String = "",
     val fullLogPath: String = "",
     val crashReportPath: String? = null,
-    val crashType: String = CRASH_TYPE_GAME
+    val crashType: String = CRASH_TYPE_GAME,
+    val loader: String = "vanilla",
+    val loaderVersion: String? = null,
+    val installedMods: List<String> = emptyList()
 ) {
     companion object {
         const val CRASH_TYPE_GAME = "GAME_CRASH"
@@ -65,12 +68,47 @@ object CrashManager {
         val mcVersion: String,
         val rendererId: String,
         val startTime: Long = System.currentTimeMillis(),
-        val gameDirPath: String? = null
+        val gameDirPath: String? = null,
+        val loader: String? = null,
+        val loaderVersion: String? = null,
+        val installedMods: List<String> = emptyList()
     )
 
-    fun onGameSessionStarted(context: Context, instanceName: String, mcVersion: String, rendererId: String, gameDirPath: String? = null) {
+    fun getInstalledMods(gameDirPath: String?): List<String> {
+        if (gameDirPath.isNullOrBlank()) return emptyList()
+        return try {
+            val modsFolder = File(gameDirPath, "mods")
+            if (!modsFolder.exists() || !modsFolder.isDirectory) return emptyList()
+            modsFolder.listFiles { f ->
+                f.isFile && (f.name.endsWith(".jar", ignoreCase = true) || f.name.endsWith(".disabled", ignoreCase = true))
+            }?.map { it.name }?.sorted() ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun onGameSessionStarted(
+        context: Context,
+        instanceName: String,
+        mcVersion: String,
+        rendererId: String,
+        gameDirPath: String? = null,
+        loader: String? = null,
+        loaderVersion: String? = null,
+        installedMods: List<String> = emptyList()
+    ) {
         try {
-            val session = ActiveGameSession(instanceName, mcVersion, rendererId, System.currentTimeMillis(), gameDirPath)
+            val resolvedMods = if (installedMods.isNotEmpty()) installedMods else getInstalledMods(gameDirPath)
+            val session = ActiveGameSession(
+                instanceName = instanceName,
+                mcVersion = mcVersion,
+                rendererId = rendererId,
+                startTime = System.currentTimeMillis(),
+                gameDirPath = gameDirPath,
+                loader = loader,
+                loaderVersion = loaderVersion,
+                installedMods = resolvedMods
+            )
             val file = File(context.filesDir, SESSION_FILE_NAME)
             file.writeText(gson.toJson(session))
         } catch (_: Exception) {}
@@ -100,7 +138,10 @@ object CrashManager {
         gameDirPath: String,
         liveLogs: List<String> = emptyList(),
         exceptionDetail: String? = null,
-        crashType: String = GameCrashInfo.CRASH_TYPE_GAME
+        crashType: String = GameCrashInfo.CRASH_TYPE_GAME,
+        loader: String = "vanilla",
+        loaderVersion: String? = null,
+        installedMods: List<String> = emptyList()
     ) {
         try {
             val filesDir = context.filesDir
@@ -141,6 +182,8 @@ object CrashManager {
                 else -> ""
             }
 
+            val resolvedMods = if (installedMods.isNotEmpty()) installedMods else getInstalledMods(gameDirPath)
+
             val crashInfo = GameCrashInfo(
                 instanceName = instanceName,
                 mcVersion = mcVersion,
@@ -150,7 +193,10 @@ object CrashManager {
                 logSnippet = snippet,
                 fullLogPath = targetLogPath,
                 crashReportPath = if (isRecentReport && latestCrashReport != null) latestCrashReport.absolutePath else null,
-                crashType = crashType
+                crashType = crashType,
+                loader = loader,
+                loaderVersion = loaderVersion,
+                installedMods = resolvedMods
             )
 
             val crashFile = File(filesDir, CRASH_FILE_NAME)
@@ -269,6 +315,12 @@ object CrashManager {
                         else -> ""
                     }
 
+                    val resolvedSessionMods = if (!session?.installedMods.isNullOrEmpty()) {
+                        session?.installedMods ?: emptyList()
+                    } else {
+                        getInstalledMods(session?.gameDirPath)
+                    }
+
                     val crashInfo = GameCrashInfo(
                         instanceName = session?.instanceName ?: "Minecraft",
                         mcVersion = session?.mcVersion ?: "Unknown",
@@ -278,7 +330,10 @@ object CrashManager {
                         logSnippet = snippet,
                         fullLogPath = fullLogPath,
                         crashReportPath = recentCrashFile?.absolutePath ?: recentHsErrFile?.absolutePath,
-                        crashType = GameCrashInfo.CRASH_TYPE_GAME
+                        crashType = GameCrashInfo.CRASH_TYPE_GAME,
+                        loader = session?.loader ?: "vanilla",
+                        loaderVersion = session?.loaderVersion,
+                        installedMods = resolvedSessionMods
                     )
 
                     val cf = File(context.filesDir, CRASH_FILE_NAME)
@@ -294,7 +349,8 @@ object CrashManager {
             val inst = InstanceManager.selectedInstance.value
             if (inst != null) {
                 val instDir = File(InstanceManager.getInstancesDir(context), inst.id)
-                val crashReportsDir = File(File(instDir, "minecraft"), "crash-reports")
+                val instGameDir = File(instDir, "minecraft")
+                val crashReportsDir = File(instGameDir, "crash-reports")
                 if (crashReportsDir.exists()) {
                     val recentCrash = crashReportsDir.listFiles { f -> f.isFile && f.name.startsWith("crash-") && f.name.endsWith(".txt") }
                         ?.maxByOrNull { it.lastModified() }
@@ -304,6 +360,7 @@ object CrashManager {
                         if (!marker.exists()) {
                             val lines = recentCrash.readLines()
                             val snippet = lines.take(150).joinToString("\n")
+                            val fallbackMods = getInstalledMods(instGameDir.absolutePath)
                             val info = GameCrashInfo(
                                 instanceName = inst.name,
                                 mcVersion = inst.mcVersion,
@@ -313,7 +370,10 @@ object CrashManager {
                                 logSnippet = snippet,
                                 fullLogPath = recentCrash.absolutePath,
                                 crashReportPath = recentCrash.absolutePath,
-                                crashType = GameCrashInfo.CRASH_TYPE_GAME
+                                crashType = GameCrashInfo.CRASH_TYPE_GAME,
+                                loader = inst.loader,
+                                loaderVersion = inst.loaderVersion,
+                                installedMods = fallbackMods
                             )
                             _activeCrash.value = info
                         }

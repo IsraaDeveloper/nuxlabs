@@ -198,9 +198,14 @@ object GameLauncher {
             }
         }
 
+        val installedMods = com.israadev.nuxlauncher.core.crash.CrashManager.getInstalledMods(gameDir.absolutePath)
+
         val intent = Intent(context, GameActivity::class.java).apply {
             putExtra(GameActivity.EXTRA_INSTANCE_NAME, instance.name)
             putExtra(GameActivity.EXTRA_MC_VERSION, instance.mcVersion)
+            putExtra(GameActivity.EXTRA_LOADER, instance.loader)
+            putExtra(GameActivity.EXTRA_LOADER_VERSION, instance.loaderVersion)
+            putStringArrayListExtra(GameActivity.EXTRA_INSTALLED_MODS, ArrayList(installedMods))
             putExtra(GameActivity.EXTRA_USERNAME, account.username)
             putExtra(GameActivity.EXTRA_UUID, playerUuid)
             putExtra(GameActivity.EXTRA_ACCESS_TOKEN, accessToken)

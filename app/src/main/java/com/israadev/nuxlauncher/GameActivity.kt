@@ -118,6 +118,9 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
         const val EXTRA_AUTHLIB_INJECTOR_PATH = "extra_authlib_injector_path"
         const val EXTRA_AUTHLIB_URL = "extra_authlib_url"
         const val EXTRA_USE_WRAPPER = "extra_use_wrapper"
+        const val EXTRA_LOADER = "extra_loader"
+        const val EXTRA_LOADER_VERSION = "extra_loader_version"
+        const val EXTRA_INSTALLED_MODS = "extra_installed_mods"
     }
 
     private val liveLogs = mutableStateListOf<String>()
@@ -156,7 +159,10 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                 isSignal = isSignal,
                 gameDirPath = gameDirPath,
                 liveLogs = liveLogs.toList(),
-                exceptionDetail = errorDetail
+                exceptionDetail = errorDetail,
+                loader = loader,
+                loaderVersion = loaderVersion,
+                installedMods = installedMods
             )
 
             // 2. Langsung luncurkan ErrorActivity mandiri (persis seperti Zalith Launcher)
@@ -232,6 +238,9 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
     private var authlibInjectorPath: String? = null
     private var authlibUrl: String? = null
     private var useWrapper = false
+    private var loader = "vanilla"
+    private var loaderVersion: String? = null
+    private var installedMods: List<String> = emptyList()
 
     private fun getScaledDisplayDimensions(): Pair<Int, Int> {
         val settings = SettingsManager.settings.value
@@ -292,6 +301,9 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
         authlibInjectorPath = intent.getStringExtra(EXTRA_AUTHLIB_INJECTOR_PATH)
         authlibUrl = intent.getStringExtra(EXTRA_AUTHLIB_URL)
         useWrapper = intent.getBooleanExtra(EXTRA_USE_WRAPPER, false)
+        loader = intent.getStringExtra(EXTRA_LOADER) ?: "vanilla"
+        loaderVersion = intent.getStringExtra(EXTRA_LOADER_VERSION)
+        installedMods = intent.getStringArrayListExtra(EXTRA_INSTALLED_MODS) ?: CrashManager.getInstalledMods(gameDirPath)
 
         // Setup real-time native LoggerBridge
         setupLogger()
@@ -1032,7 +1044,16 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                 LoggerBridge.appendTitle("JVM Launch Command")
                 jvmArgs.forEach { LoggerBridge.append("▷ $it") }
 
-                CrashManager.onGameSessionStarted(this, instanceName, mcVersion, activeSettings.selectedRenderer, gameDir.absolutePath)
+                CrashManager.onGameSessionStarted(
+                    context = this,
+                    instanceName = instanceName,
+                    mcVersion = mcVersion,
+                    rendererId = activeSettings.selectedRenderer,
+                    gameDirPath = gameDir.absolutePath,
+                    loader = loader,
+                    loaderVersion = loaderVersion,
+                    installedMods = installedMods
+                )
                 liveLogs.add("[NUX Engine] Memulai eksekusi VMLauncher.launchJVM()...")
                 val exitCode = VMLauncher.launchJVM(jvmArgs.toTypedArray())
                 liveLogs.add("[NUX Engine] JVM selesai dengan kode keluar: $exitCode")

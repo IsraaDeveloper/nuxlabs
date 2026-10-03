@@ -250,6 +250,38 @@ fun NuxCrashDialog(
                                         fontSize = 12.5.sp
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(Color(0xFF2E1C24))
+                                                .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                        ) {
+                                            Text(
+                                                text = "${crashInfo.loader.uppercase()} ${crashInfo.loaderVersion?.let { "v$it" } ?: ""}".trim(),
+                                                color = Color(0xFF38BDF8),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 8.sp
+                                            )
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(Color(0xFF2E1C24))
+                                                .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                        ) {
+                                            Text(
+                                                text = "${crashInfo.installedMods.size} Mod",
+                                                color = Color(0xFFA1A1AA),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 8.sp
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = mainMessage,
                                         color = Color(0xFFFDA4AF),
@@ -779,15 +811,10 @@ fun NuxCrashDialog(
                                                     .fillMaxSize()
                                                     .verticalScroll(verticalScroll)
                                             ) {
-                                                Text(
-                                                    text = buildString {
-                                                        append(state.fullText)
-                                                        if (isCursorBlinkVisible) append(" ▌")
-                                                    },
-                                                    color = Color(0xFFE2E8F0),
-                                                    fontFamily = FontFamily.Monospace,
-                                                    fontSize = 9.5.sp,
-                                                    lineHeight = 14.sp
+                                                NuxMarkdownView(
+                                                    markdownText = state.fullText,
+                                                    isStreaming = true,
+                                                    showCursor = isCursorBlinkVisible
                                                 )
                                             }
                                         }
@@ -800,13 +827,13 @@ fun NuxCrashDialog(
                                                     .verticalScroll(verticalScroll),
                                                 verticalArrangement = Arrangement.SpaceBetween
                                             ) {
-                                                Text(
-                                                    text = state.fullText,
-                                                    color = Color(0xFFE2E8F0),
-                                                    fontFamily = FontFamily.Monospace,
-                                                    fontSize = 9.5.sp,
-                                                    lineHeight = 14.sp
-                                                )
+                                                Column(modifier = Modifier.weight(1f, fill = false)) {
+                                                    NuxMarkdownView(
+                                                        markdownText = state.fullText,
+                                                        isStreaming = false,
+                                                        showCursor = false
+                                                    )
+                                                }
 
                                                 Spacer(modifier = Modifier.height(8.dp))
                                                 Row(

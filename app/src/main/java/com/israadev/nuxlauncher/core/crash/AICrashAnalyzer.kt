@@ -153,24 +153,50 @@ object AICrashAnalyzer {
 
         val logSnippet = extractMostRelevantLog(crashInfo)
 
+        val modListStr = if (crashInfo.installedMods.isNotEmpty()) {
+            crashInfo.installedMods.joinToString("\n") { "- $it" }
+        } else {
+            "- (Tidak ada mod / Vanilla)"
+        }
+
         val systemPrompt = """
-            Kamu adalah AI Ahli Analisis Crash Minecraft (Android/Pojav/NUX Launcher).
-            Tugasmu: Analisis log error berikut, berikan penjelasan singkat, padat, dan solutif dalam Bahasa Indonesia.
+            Kamu adalah AI Ahli Diagnosa Crash Minecraft Java Edition pada platform Android (NUX Launcher / Pojav runtime).
+            Tugasmu: Analisis error log, metadata versi, mod loader, dan daftar mod yang terpasang dengan teliti.
 
-            Format Output Wajib:
-            🔍 PENYEBAB CRASH:
-            (1-2 kalimat ringkas menjelaskan sumber masalah, misal: mod tidak kompatibel, memori/RAM kurang, renderer Vulkan/Zink error, Java version tidak cocok, atau class not found)
+            ATURAN FORMAT OUTPUT WAJIB (Gunakan Pemformatan Markdown):
 
-            💡 SOLUSI REKOMENDASI:
-            • (Langkah perbaikan praktis 1)
-            • (Langkah perbaikan praktis 2)
-            • (Langkah perbaikan praktis 3 jika relevan)
+            ### 🏷️ STATUS MASALAH:
+            Pilih TEPAT SATU dari dua label ini di baris pertama:
+            - **[BISA DISELESAIKAN SENDIRI]**
+              Gunakan jika masalah berasal dari: mod tidak kompatibel dengan versi Minecraft, Fabric/Forge API belum terpasang, mod bentrok/duplikat, Java runtime salah pilih, alokasi RAM kurang, opsi/shader/resource pack korup, atau kesalahan konfigurasi player.
+            - **[BUG DEVELOPER / LAUNCHER]**
+              Gunakan jika masalah berasal dari: bug internal native C/C++ engine peluncur (Pojav/NUX/Zalith), library Android NDK gagal load/missing, DEX error, segmentation fault pada GL4ES/MobileGlues renderer internal tanpa keterlibatan mod rusak, atau uncaught exception launcher itu sendiri.
 
-            Jangan gunakan kalimat basa-basi seperti "Halo" atau "Semoga membantu". Langsung ke poin.
+            Jika statusnya **[BUG DEVELOPER / LAUNCHER]**, WAJIB sertakan instruksi ini tepat di bawahnya:
+            > ⚠️ **Buka Tiket Pengaduan:** Masalah ini terindikasi sebagai bug internal peluncur/engine. Silakan laporkan dan buka tiket pengaduan di Discord resmi NUX Launcher: **https://discord.gg/UW4wBQg6X5** dengan menyertakan file log ini agar segera diperbaiki oleh developer.
+
+            ---
+
+            ### 🔍 PENYEBAB CRASH
+            (Jelaskan secara ringkas, padat, dan akurat sumber masalahnya berdasarkan log dan mod terpasang. Sebutkan nama mod/library yang bersalah jika ada).
+
+            ### 💡 LANGKAH PERBAIKAN
+            (Berikan 1-3 langkah perbaikan yang jelas, berurutan, dan praktis menggunakan bullet list `- `).
+
+            Hindari basa-basi seperti "Halo", "Semoga membantu", atau penutup bertele-tele. Langsung to the point.
         """.trimIndent()
 
         val userPrompt = """
+            [INFORMASI INSTANCE & LINGKUNGAN]
+            - Instance: ${crashInfo.instanceName}
+            - Versi Minecraft: ${crashInfo.mcVersion}
+            - Mod Loader: ${crashInfo.loader.uppercase()} ${if (!crashInfo.loaderVersion.isNullOrBlank()) "(${crashInfo.loaderVersion})" else ""}
+            - Total Mod Terpasang: ${crashInfo.installedMods.size} mod
+            - Daftar Mod Terpasang:
+            $modListStr
+
             [METADATA CRASH]
+            - Tipe Crash: ${if (crashInfo.isLauncherCrash) "Launcher Internal" else "Minecraft JVM Game"}
             - Exit Code: ${crashInfo.exitCode} (Signal: ${crashInfo.isSignal})
             - Status: ${crashInfo.getStatusBadgeText()}
             - Info: ${crashInfo.getMainMessage()}
