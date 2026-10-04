@@ -191,29 +191,7 @@ fun InGameSettingsDialog(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            // Custom GUI In-Game Quick Action Button
-                            IconButton(
-                                onClick = {
-                                    onDismissRequest()
-                                    onOpenCustomGui()
-                                },
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(NuxColors.ForestGreen.copy(alpha = 0.5f))
-                                    .border(1.dp, NuxColors.MintGreen, CircleShape)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Tune,
-                                    contentDescription = "Custom GUI In-Game",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(10.dp))
 
                             // Close Button
                             IconButton(
@@ -557,74 +535,52 @@ fun InGameSettingsDialog(
                                         }
                                     }
                                 }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                // D. Kustomisasi Tombol (Custom GUI In-Game)
-                                InGameSectionCard(title = "Kustomisasi Tombol (Custom GUI)") {
-                                    Column {
-                                        Text(
-                                            text = "Buka editor GUI langsung di dalam game dengan background blur transparan. Geser dan atur tombol sesuai HUD Minecraft secara live!",
-                                            color = Color(0xFF94A3B8),
-                                            fontSize = 10.sp,
-                                            lineHeight = 14.sp
-                                        )
-                                        Spacer(modifier = Modifier.height(10.dp))
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(
-                                                    Brush.horizontalGradient(
-                                                        colors = listOf(
-                                                            Color(0xFF10B981),
-                                                            Color(0xFF059669)
-                                                        )
-                                                    )
-                                                )
-                                                .clickable {
-                                                    onDismissRequest()
-                                                    onOpenCustomGui()
-                                                }
-                                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    imageVector = Icons.Outlined.Tune,
-                                                    contentDescription = null,
-                                                    tint = Color.White,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(10.dp))
-                                                Column {
-                                                    Text(
-                                                        text = "EDIT TOMBOL IN-GAME",
-                                                        color = Color.White,
-                                                        fontSize = 11.sp,
-                                                        fontWeight = FontWeight.Black
-                                                    )
-                                                    Text(
-                                                        text = "Background live blur · Atur posisi tombol sekarang",
-                                                        color = Color(0xFFD1FAE5),
-                                                        fontSize = 9.sp
-                                                    )
-                                                }
-                                            }
-                                            Icon(
-                                                imageVector = Icons.Outlined.ChevronRight,
-                                                contentDescription = null,
-                                                tint = Color.White,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                }
                             }
 
                             2 -> {
                                 // === TAB 2: PINTAS & SISTEM ===
+                                // A. Edit/Custom GUI Button
+                                InGameSectionCard(title = "Kustomisasi Tombol Layar") {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0x3310B981))
+                                            .border(1.dp, Color(0x6610B981), RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                onDismissRequest()
+                                                onOpenCustomGui()
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Tune,
+                                                contentDescription = null,
+                                                tint = NuxColors.MintGreen,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Edit/Custom GUI",
+                                                color = Color.White,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Icon(
+                                            imageVector = Icons.Outlined.ChevronRight,
+                                            contentDescription = null,
+                                            tint = NuxColors.MintGreen,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
                                 InGameSectionCard(title = "Tombol Pintas Cepat (Quick Keycodes)") {
                                     Column {
                                         Text(

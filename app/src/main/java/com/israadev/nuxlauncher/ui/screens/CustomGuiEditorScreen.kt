@@ -399,7 +399,7 @@ fun CustomGuiEditorScreen(
                 )
                 Spacer(modifier = Modifier.width(5.dp))
                 Text(
-                    text = if (isIngame) "SELESAI (IN-GAME)" else "KEMBALI",
+                    text = if (isIngame) "SELESAI" else "KEMBALI",
                     color = Color.White,
                     fontWeight = FontWeight.Black,
                     fontSize = 11.sp
