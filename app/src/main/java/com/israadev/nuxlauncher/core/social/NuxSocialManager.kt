@@ -1107,10 +1107,11 @@ object NuxSocialManager {
             // Primary: NuxConfig.UPLOAD_IMAGE_URL
             val uploadUrl = NuxConfig.UPLOAD_IMAGE_URL
             if (uploadUrl.isNotBlank()) {
-                val req = Request.Builder()
+                val reqBuilder = Request.Builder()
                     .url(uploadUrl)
                     .post(multipart)
-                    .build()
+                NuxConfig.applyAuthHeaders(reqBuilder)
+                val req = reqBuilder.build()
 
                 val resp = client.newCall(req).execute()
                 val body = resp.body?.string() ?: ""

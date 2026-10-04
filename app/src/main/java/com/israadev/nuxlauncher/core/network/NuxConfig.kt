@@ -13,6 +13,7 @@ import com.israadev.nuxlauncher.BuildConfig
  */
 object NuxConfig {
     val SERVER_BASE_URL: String = BuildConfig.SERVER_BASE_URL.trim().trimEnd('/')
+    val SERVER_API_KEY: String = BuildConfig.SERVER_API_KEY.trim()
 
     val isConfigured: Boolean
         get() = SERVER_BASE_URL.isNotBlank()
@@ -31,6 +32,20 @@ object NuxConfig {
 
     val BUY_KEY_URL: String
         get() = if (isConfigured) "$SERVER_BASE_URL/android-key" else ""
+
+    /**
+     * Memasang header otentikasi API Key ke HTTP Request OkHttp.
+     */
+    fun applyAuthHeaders(builder: okhttp3.Request.Builder, includeBearerIfEmpty: Boolean = true): okhttp3.Request.Builder {
+        if (SERVER_API_KEY.isNotBlank()) {
+            builder.header("X-API-Key", SERVER_API_KEY)
+            builder.header("x-api-key", SERVER_API_KEY)
+            if (includeBearerIfEmpty) {
+                builder.header("Authorization", "Bearer $SERVER_API_KEY")
+            }
+        }
+        return builder
+    }
 
     /**
      * Menghasilkan URL download lengkap.

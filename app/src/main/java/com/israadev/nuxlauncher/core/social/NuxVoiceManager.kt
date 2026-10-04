@@ -203,11 +203,12 @@ object NuxVoiceManager {
                 val tokenUrl = "$TOKEN_API_BASE?room=$roomId&participant=$encodedUid&metadata=$encodedMeta"
                 Log.i(TAG, "Requesting LiveKit token from: $tokenUrl")
 
-                val req = Request.Builder()
+                val reqBuilder = Request.Builder()
                     .url(tokenUrl)
                     .header("User-Agent", "Mozilla/5.0 (Linux; Android) NuxLauncher/2.5")
                     .get()
-                    .build()
+                NuxConfig.applyAuthHeaders(reqBuilder)
+                val req = reqBuilder.build()
 
                 val resp = client.newCall(req).execute()
                 val body = resp.body?.string() ?: ""

@@ -119,6 +119,7 @@ object AuthService {
                 if (!bearerToken.isNullOrBlank()) {
                     reqBuilder.addHeader("Authorization", "Bearer $bearerToken")
                 }
+                NuxConfig.applyAuthHeaders(reqBuilder, includeBearerIfEmpty = bearerToken.isNullOrBlank())
                 val request = reqBuilder.build()
 
                 val response = client.newCall(request).execute()
@@ -508,10 +509,11 @@ object AuthService {
                         .addFormDataPart("image", "avatar_${System.currentTimeMillis()}.jpg", requestBody)
                         .build()
 
-                    val req = Request.Builder()
+                    val reqBuilder = Request.Builder()
                         .url(uploadServerUrl)
                         .post(multipartBody)
-                        .build()
+                    NuxConfig.applyAuthHeaders(reqBuilder)
+                    val req = reqBuilder.build()
 
                     client.newCall(req).execute().use { resp ->
                         val respStr = resp.body?.string() ?: ""

@@ -41,11 +41,12 @@ object UpdateManager {
             return@withContext Result.failure(Exception("Server pembaruan belum dikonfigurasi di local.properties."))
         }
         try {
-            val req = Request.Builder()
+            val reqBuilder = Request.Builder()
                 .url(UPDATE_ENDPOINT)
                 .header("User-Agent", "NuxLauncher-Android/1.0.4")
                 .get()
-                .build()
+            NuxConfig.applyAuthHeaders(reqBuilder)
+            val req = reqBuilder.build()
 
             client.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) {

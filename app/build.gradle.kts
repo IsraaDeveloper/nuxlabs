@@ -14,6 +14,7 @@ if (localPropertiesFile.exists()) {
     }
 }
 val rawServerUrl: String = localProperties.getProperty("nux.server.url") ?: ""
+val rawServerApiKey: String = localProperties.getProperty("nux.server.api.key") ?: ""
 val rawAiApiKey: String = localProperties.getProperty("nux.ai.api.key") ?: ""
 
 android {
@@ -28,6 +29,7 @@ android {
         versionName = "1.0.9"
 
         buildConfigField("String", "SERVER_BASE_URL", "\"$rawServerUrl\"")
+        buildConfigField("String", "SERVER_API_KEY", "\"$rawServerApiKey\"")
         buildConfigField("String", "DEFAULT_AI_API_KEY", "\"$rawAiApiKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
