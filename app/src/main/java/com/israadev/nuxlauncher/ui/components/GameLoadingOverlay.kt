@@ -56,7 +56,8 @@ import com.israadev.nuxlauncher.ui.theme.NuxColors
 import kotlinx.coroutines.delay
 
 private val GAME_TIPS = listOf(
-    "Ketuk tombol FPS: Klik 1x untuk Pin FPS (tetap tampil saat GUI di-hide), klik 2x untuk memunculkan Live Log, dan klik 3x untuk kembali normal.",
+    "Klik FPS untuk membuka setingan launcher di dalam game.",
+    "Bug itu hal yang biasa, karena tiada yang sepurna melainkan tuhan yang maha kuasa.",
     "Matikan Vertical Sync (VSync) di pengaturan Renderer jika mengalami stuttering atau layar blank hitam setelah logo Mojang.",
     "Jika tampilan layar Minecraft terpotong atau vertikal, aktifkan rotasi otomatis HP dan posisikan layar mendatar (Landscape) sebelum menekan Mainkan.",
     "Gunakan MobileGlues Renderer untuk efisiensi baterai dan kompatibilitas shaderpack terbaik.",
