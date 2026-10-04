@@ -513,30 +513,24 @@ object AuthService {
                         .post(multipartBody)
                         .build()
 
-                    val resp = client.newCall(req).execute()
-                    val respStr = resp.body?.string() ?: ""
-                    if (resp.isSuccessful) {
-                        val json = gson.fromJson(respStr, JsonObject::class.java)
-                        val url = json?.get("url")?.asString
-                        if (!url.isNullOrEmpty()) {
-                            return@withContext Result.success(url)
-                        }
-                    } else {
-                        try {
+                    client.newCall(req).execute().use { resp ->
+                        val respStr = resp.body?.string() ?: ""
+                        if (resp.isSuccessful) {
                             val json = gson.fromJson(respStr, JsonObject::class.java)
-                            val err = json?.get("error")?.asString
-                            if (!err.isNullOrEmpty()) {
-                                return@withContext Result.failure(Exception("Gagal upload: $err"))
+                            val url = json?.get("url")?.asString
+                            if (!url.isNullOrEmpty()) {
+                                return@withContext Result.success(url)
                             }
-                        } catch (_: Exception) {}
-                        return@withContext Result.failure(Exception("Server upload merespon error: ${resp.code}"))
+                        } else {
+                            android.util.Log.w("AuthService", "Server upload returned ${resp.code}: $respStr, falling back to ImgBB")
+                        }
                     }
                 } catch (e: Exception) {
-                    // Fallback darurat ke ImgBB jika server utama mengalami timeout/down
+                    android.util.Log.w("AuthService", "Server upload failed: ${e.message}, falling back to ImgBB")
                 }
             }
 
-            // Fallback darurat ke ImgBB jika server utama tidak aktif atau gagal
+            // Fallback darurat ke ImgBB jika server utama tidak aktif, menolak akses (401), atau gagal
             try {
                 val imgbbBody = MultipartBody.Builder()
                     .setType(MultipartBody.FORM)
@@ -548,21 +542,24 @@ object AuthService {
                     .post(imgbbBody)
                     .build()
 
-                val imgbbResp = client.newCall(imgbbReq).execute()
-                val imgbbStr = imgbbResp.body?.string() ?: ""
-                if (imgbbResp.isSuccessful) {
-                    val json = gson.fromJson(imgbbStr, JsonObject::class.java)
-                    val dataObj = json?.getAsJsonObject("data")
-                    val url = dataObj?.get("url")?.asString ?: dataObj?.get("display_url")?.asString
-                    if (!url.isNullOrEmpty()) {
-                        return@withContext Result.success(url)
+                client.newCall(imgbbReq).execute().use { imgbbResp ->
+                    val imgbbStr = imgbbResp.body?.string() ?: ""
+                    if (imgbbResp.isSuccessful) {
+                        val json = gson.fromJson(imgbbStr, JsonObject::class.java)
+                        val dataObj = json?.getAsJsonObject("data")
+                        val url = dataObj?.get("url")?.asString ?: dataObj?.get("display_url")?.asString
+                        if (!url.isNullOrEmpty()) {
+                            return@withContext Result.success(url)
+                        }
+                    } else {
+                        android.util.Log.w("AuthService", "ImgBB returned ${imgbbResp.code}: $imgbbStr")
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                android.util.Log.w("AuthService", "ImgBB upload error: ${e.message}")
+            }
 
             return@withContext Result.failure(Exception("Gagal mengunggah foto profil. Silakan periksa koneksi internet."))
-
-            Result.failure(Exception("Gagal mengunggah foto profil. Silakan periksa koneksi internet."))
         } catch (e: Exception) {
             Result.failure(e)
         }
