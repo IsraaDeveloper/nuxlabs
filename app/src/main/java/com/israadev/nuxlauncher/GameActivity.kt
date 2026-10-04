@@ -5,6 +5,7 @@ import com.israadev.nuxlauncher.core.crash.CrashManager
 import com.israadev.nuxlauncher.core.renderer.NuxRendererRegistry
 import com.israadev.nuxlauncher.ui.activities.ErrorActivity
 import com.israadev.nuxlauncher.ui.components.GameLoadingOverlay
+import com.israadev.nuxlauncher.ui.dialogs.InGameSettingsDialog
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -244,7 +245,7 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     private fun getScaledDisplayDimensions(): Pair<Int, Int> {
         val settings = SettingsManager.settings.value
-        val ratio = (settings.resolutionRatio / 100f).coerceIn(0.5f, 1.5f)
+        val ratio = (settings.resolutionRatio / 100f).coerceIn(0.35f, 1.5f)
         val rawW = resources.displayMetrics.widthPixels
         val rawH = resources.displayMetrics.heightPixels
         // GameActivity adalah sensorLandscape, pastikan lebar horizontal selalu lebih besar dari tinggi vertikal
@@ -253,6 +254,17 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
         val width = (screenW * ratio).roundToInt()
         val height = (screenH * ratio).roundToInt()
         return Pair(width, height)
+    }
+
+    private fun applyDynamicResolution(newRatio: Int) {
+        val current = SettingsManager.settings.value
+        val updated = current.copy(resolutionRatio = newRatio)
+        SettingsManager.updateSettings(this, updated)
+
+        val (targetW, targetH) = getScaledDisplayDimensions()
+        surfaceHolderRef?.setFixedSize(targetW, targetH)
+        CallbackBridge.sendUpdateWindowSize(targetW, targetH)
+        LoggerBridge.append("▷ [In-Game Resolution] Dinamis diperbarui ke $newRatio% (${targetW}x${targetH})")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -343,6 +355,9 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                         val (targetWidth, targetHeight) = getScaledDisplayDimensions()
                         surfaceHolder.setFixedSize(targetWidth, targetHeight)
                         surfaceHolder.addCallback(this@GameActivity)
+                    },
+                    onResolutionChange = { newRatio ->
+                        applyDynamicResolution(newRatio)
                     },
                     onExit = {
                         isManualExit = true
@@ -1098,6 +1113,7 @@ fun GameScreen(
     isControlVisibleState: MutableState<Boolean>,
     isGameRenderingState: MutableState<Boolean>,
     onSurfaceReady: (SurfaceHolder) -> Unit,
+    onResolutionChange: (Int) -> Unit = {},
     onExit: () -> Unit
 ) {
     var isControlVisible by isControlVisibleState
@@ -1105,6 +1121,7 @@ fun GameScreen(
     var isManualLoadingDismissed by remember { mutableStateOf(false) }
     val showLoadingOverlay = !isGameRendering && !isManualLoadingDismissed
 
+    var showInGameSettingsDialog by remember { mutableStateOf(false) }
     var isKeyboardRequested by remember { mutableStateOf(false) }
     var isConsoleVisible by remember { mutableStateOf(false) }
     var isConsoleExpanded by remember { mutableStateOf(false) }
@@ -1309,9 +1326,9 @@ fun GameScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Clickable FPS badge in console (Klik ke-3 untuk kembali normal)
+                    // Clickable FPS badge in console (Klik untuk membuka menu in-game)
                     Box(
-                        modifier = Modifier.clickable { cycleFpsMode() }
+                        modifier = Modifier.clickable { showInGameSettingsDialog = true }
                     ) {
                         NuxBadge(
                             text = if (currentFps > 0) "$currentFps FPS" else "FPS: --",
@@ -1433,7 +1450,7 @@ fun GameScreen(
                                         if (isPinned) Color(0xFF38BDF8) else Color(0x3834D399),
                                         RoundedCornerShape(btn.cornerRadiusDp.dp)
                                     )
-                                    .clickable { cycleFpsMode() },
+                                    .clickable { showInGameSettingsDialog = true },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Row(
@@ -1638,6 +1655,62 @@ fun GameScreen(
                 }
             }
         }
+
+        // In-Game Settings Modal (Pencet tombol FPS untuk membuka)
+        InGameSettingsDialog(
+            visible = showInGameSettingsDialog,
+            onDismissRequest = { showInGameSettingsDialog = false },
+            currentFps = currentFps,
+            instanceName = instanceName,
+            mcVersion = mcVersion,
+            currentResolutionRatio = launcherSettings.resolutionRatio,
+            onResolutionChange = { newRatio ->
+                onResolutionChange(newRatio)
+            },
+            fpsMode = fpsMode,
+            onFpsModeChange = { newMode ->
+                fpsMode = newMode
+            },
+            onOpenConsoleLog = {
+                fpsMode = FpsMode.SHOW_LOG
+                isConsoleVisible = true
+            },
+            cursorSensitivity = launcherSettings.cursorSensitivity,
+            onCursorSensitivityChange = { newSens ->
+                SettingsManager.updateSettings(
+                    context,
+                    launcherSettings.copy(cursorSensitivity = newSens)
+                )
+            },
+            captureSensitivity = launcherSettings.captureSensitivity,
+            onCaptureSensitivityChange = { newSens ->
+                SettingsManager.updateSettings(
+                    context,
+                    launcherSettings.copy(captureSensitivity = newSens)
+                )
+            },
+            mouseControlMode = mouseControlMode,
+            onMouseControlModeChange = { newMode ->
+                SettingsManager.updateSettings(
+                    context,
+                    launcherSettings.copy(mouseControlMode = if (newMode == MouseControlMode.CLICK) "CLICK" else "SLIDE")
+                )
+            },
+            isControlVisible = isControlVisible,
+            onToggleControlVisibility = {
+                isControlVisible = !isControlVisible
+            },
+            onRequestKeyboard = {
+                isKeyboardRequested = true
+            },
+            onSendKeycode = { keycode ->
+                CallbackBridge.sendKeyPress(keycode, true)
+                CallbackBridge.sendKeyPress(keycode, false)
+            },
+            onForceExitRequest = {
+                showExitConfirmDialog = true
+            }
+        )
     }
 }
 
