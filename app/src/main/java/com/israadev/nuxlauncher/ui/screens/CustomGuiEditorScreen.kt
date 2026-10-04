@@ -52,7 +52,8 @@ import kotlin.math.roundToInt
 @Composable
 fun CustomGuiEditorScreen(
     onNavigateBack: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isIngame: Boolean = false
 ) {
     val context = LocalContext.current
     val savedButtons by ControlLayoutManager.buttons.collectAsState()
@@ -86,16 +87,17 @@ fun CustomGuiEditorScreen(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0E1411))
+            .background(if (isIngame) Color.Black.copy(alpha = 0.40f) else Color(0xFF0E1411))
     ) {
         val screenWidthPx = constraints.maxWidth.toFloat()
         val screenHeightPx = constraints.maxHeight.toFloat()
         val density = LocalDensity.current
 
-        // 1. Dark Blueprint Dot Grid Canvas (High-Contrast, Sleek Tactical Look)
+        // 1. Blueprint Dot Grid Canvas (Subtle in-game so live game is visible, Tactical Dark in launcher)
         Canvas(modifier = Modifier.fillMaxSize()) {
             val step = 32.dp.toPx()
-            val dotColor = Color(0xFF22362C)
+            val dotColor = if (isIngame) Color.White.copy(alpha = 0.20f) else Color(0xFF22362C)
+            val guideLineColor = if (isIngame) Color.White.copy(alpha = 0.15f) else Color(0xFF22362C).copy(alpha = 0.6f)
             var x = step
             while (x < size.width) {
                 var y = step
@@ -108,13 +110,13 @@ fun CustomGuiEditorScreen(
 
             // Center guide lines
             drawLine(
-                color = Color(0xFF22362C).copy(alpha = 0.6f),
+                color = guideLineColor,
                 start = Offset(size.width / 2f, 0f),
                 end = Offset(size.width / 2f, size.height),
                 strokeWidth = 1.dp.toPx()
             )
             drawLine(
-                color = Color(0xFF22362C).copy(alpha = 0.6f),
+                color = guideLineColor,
                 start = Offset(0f, size.height / 2f),
                 end = Offset(size.width, size.height / 2f),
                 strokeWidth = 1.dp.toPx()
@@ -372,25 +374,36 @@ fun CustomGuiEditorScreen(
         }
 
         // 3. TOP ACTION BAR (Clean & Un-clipped Floating Header)
-        // Top-Left: Kembali Button
+        // Top-Left: Kembali / Selesai In-Game Button
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(16.dp)
-                .background(Color(0xFF161F1A), RoundedCornerShape(8.dp))
-                .border(1.2.dp, Color(0xFF2C3E34), RoundedCornerShape(8.dp))
-                .clickable { onNavigateBack() }
+                .background(if (isIngame) Color(0xFF10B981) else Color(0xFF161F1A), RoundedCornerShape(8.dp))
+                .border(1.2.dp, if (isIngame) Color(0xFF34D399) else Color(0xFF2C3E34), RoundedCornerShape(8.dp))
+                .clickable {
+                    if (isIngame) {
+                        ControlLayoutManager.saveButtons(context, buttonsList)
+                        Toast.makeText(context, "✓ Layout tombol in-game disimpan!", Toast.LENGTH_SHORT).show()
+                    }
+                    onNavigateBack()
+                }
                 .padding(horizontal = 12.dp, vertical = 7.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Kembali",
-                    tint = Color(0xFFE8F5E9),
+                    imageVector = if (isIngame) Icons.Outlined.Check else Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = if (isIngame) "Selesai" else "Kembali",
+                    tint = Color.White,
                     modifier = Modifier.size(13.dp)
                 )
                 Spacer(modifier = Modifier.width(5.dp))
-                Text("KEMBALI", color = Color(0xFFE8F5E9), fontWeight = FontWeight.Black, fontSize = 11.sp)
+                Text(
+                    text = if (isIngame) "SELESAI (IN-GAME)" else "KEMBALI",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 11.sp
+                )
             }
         }
 
@@ -1195,6 +1208,33 @@ fun CustomGuiEditorScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // 5. In-Game Mode Floating Status Badge
+        if (isIngame) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 12.dp)
+                    .background(Color(0xCC091E2A), RoundedCornerShape(20.dp))
+                    .border(1.dp, Color(0x6638BDF8), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(Color(0xFF38BDF8), CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(7.dp))
+                    Text(
+                        text = "MODE IN-GAME · Geser tombol sesuai HUD game lalu klik SELESAI",
+                        color = Color(0xFFBAE6FD),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }

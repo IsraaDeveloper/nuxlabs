@@ -6,6 +6,8 @@ import com.israadev.nuxlauncher.core.renderer.NuxRendererRegistry
 import com.israadev.nuxlauncher.ui.activities.ErrorActivity
 import com.israadev.nuxlauncher.ui.components.GameLoadingOverlay
 import com.israadev.nuxlauncher.ui.dialogs.InGameSettingsDialog
+import com.israadev.nuxlauncher.ui.screens.CustomGuiEditorScreen
+import androidx.core.view.WindowCompat
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -246,8 +248,15 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
     private fun getScaledDisplayDimensions(): Pair<Int, Int> {
         val settings = SettingsManager.settings.value
         val ratio = (settings.resolutionRatio / 100f).coerceIn(0.35f, 1.5f)
-        val rawW = resources.displayMetrics.widthPixels
-        val rawH = resources.displayMetrics.heightPixels
+        val (rawW, rawH) = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val bounds = windowManager.currentWindowMetrics.bounds
+            Pair(bounds.width(), bounds.height())
+        } else {
+            val dm = android.util.DisplayMetrics()
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.getRealMetrics(dm)
+            Pair(dm.widthPixels, dm.heightPixels)
+        }
         // GameActivity adalah sensorLandscape, pastikan lebar horizontal selalu lebih besar dari tinggi vertikal
         val screenW = maxOf(rawW, rawH)
         val screenH = minOf(rawW, rawH)
@@ -267,6 +276,45 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
         LoggerBridge.append("▷ [In-Game Resolution] Dinamis diperbarui ke $newRatio% (${targetW}x${targetH})")
     }
 
+    private fun applyImmersiveFullscreen() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val params = window.attributes
+            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN)
+            window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN)
+            window.attributes = params
+        }
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.insetsController?.let { controller ->
+                controller.hide(
+                    android.view.WindowInsets.Type.statusBars() or
+                    android.view.WindowInsets.Type.navigationBars() or
+                    android.view.WindowInsets.Type.displayCutout()
+                )
+                controller.systemBarsBehavior =
+                    android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        }
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = (
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            or View.SYSTEM_UI_FLAG_FULLSCREEN
+        )
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            applyImmersiveFullscreen()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         PhysicalMouseChecker.initChecker(this)
@@ -278,23 +326,7 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
         CallbackBridge.sContext = this
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val params = window.attributes
-            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-            window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN)
-            window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN)
-            window.attributes = params
-        }
-
-        window.decorView.systemUiVisibility = (
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_FULLSCREEN
-        )
+        applyImmersiveFullscreen()
 
         instanceName = intent.getStringExtra(EXTRA_INSTANCE_NAME) ?: "Minecraft"
         mcVersion = intent.getStringExtra(EXTRA_MC_VERSION) ?: "Unknown"
@@ -1122,6 +1154,7 @@ fun GameScreen(
     val showLoadingOverlay = !isGameRendering && !isManualLoadingDismissed
 
     var showInGameSettingsDialog by remember { mutableStateOf(false) }
+    var isCustomGuiEditorActive by remember { mutableStateOf(false) }
     var isKeyboardRequested by remember { mutableStateOf(false) }
     var isConsoleVisible by remember { mutableStateOf(false) }
     var isConsoleExpanded by remember { mutableStateOf(false) }
@@ -1208,8 +1241,17 @@ fun GameScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Physical Mouse Mode State (Zalith-style: auto-hide virtual pointer when physical mouse is used)
-        var isPhysicalMouseMode by remember {
+        if (isCustomGuiEditorActive) {
+            // Live In-Game Custom GUI Editor (Overlay di atas SurfaceView game dengan latar transparan blur)
+            CustomGuiEditorScreen(
+                isIngame = true,
+                onNavigateBack = {
+                    isCustomGuiEditorActive = false
+                }
+            )
+        } else {
+            // Physical Mouse Mode State (Zalith-style: auto-hide virtual pointer when physical mouse is used)
+            var isPhysicalMouseMode by remember {
             mutableStateOf(
                 if (PhysicalMouseChecker.physicalMouseConnected) {
                     launcherSettings.physicalMouseMode
@@ -1709,8 +1751,13 @@ fun GameScreen(
             },
             onForceExitRequest = {
                 showExitConfirmDialog = true
+            },
+            onOpenCustomGui = {
+                showInGameSettingsDialog = false
+                isCustomGuiEditorActive = true
             }
         )
+        }
     }
 }
 

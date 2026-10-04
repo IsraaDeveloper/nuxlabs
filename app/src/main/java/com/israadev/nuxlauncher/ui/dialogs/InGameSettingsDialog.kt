@@ -1,5 +1,7 @@
 package com.israadev.nuxlauncher.ui.dialogs
 
+import android.os.Build
+import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,12 +20,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import com.israadev.nuxlauncher.FpsMode
 import com.israadev.nuxlauncher.ui.control.MouseControlMode
 import com.israadev.nuxlauncher.ui.theme.NuxColors
@@ -52,7 +56,8 @@ fun InGameSettingsDialog(
     onToggleControlVisibility: () -> Unit,
     onRequestKeyboard: () -> Unit,
     onSendKeycode: (Int) -> Unit,
-    onForceExitRequest: () -> Unit
+    onForceExitRequest: () -> Unit,
+    onOpenCustomGui: () -> Unit = {}
 ) {
     if (!visible) return
 
@@ -63,12 +68,33 @@ fun InGameSettingsDialog(
 
     Dialog(
         onDismissRequest = onDismissRequest,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
     ) {
+        val dialogView = LocalView.current
+        SideEffect {
+            val dialogWindow = (dialogView.parent as? DialogWindowProvider)?.window
+            dialogWindow?.let { win ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    win.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                    win.attributes = win.attributes.apply {
+                        blurBehindRadius = 45
+                    }
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    win.attributes = win.attributes.apply {
+                        layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                    }
+                }
+            }
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
+                .background(Color.Black.copy(alpha = 0.45f))
                 .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -165,7 +191,29 @@ fun InGameSettingsDialog(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            // Custom GUI In-Game Quick Action Button
+                            IconButton(
+                                onClick = {
+                                    onDismissRequest()
+                                    onOpenCustomGui()
+                                },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(NuxColors.ForestGreen.copy(alpha = 0.5f))
+                                    .border(1.dp, NuxColors.MintGreen, CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Tune,
+                                    contentDescription = "Custom GUI In-Game",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(6.dp))
 
                             // Close Button
                             IconButton(
@@ -505,6 +553,70 @@ fun InGameSettingsDialog(
                                                     checkedThumbColor = Color.White,
                                                     checkedTrackColor = NuxColors.ForestGreen
                                                 )
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // D. Kustomisasi Tombol (Custom GUI In-Game)
+                                InGameSectionCard(title = "Kustomisasi Tombol (Custom GUI)") {
+                                    Column {
+                                        Text(
+                                            text = "Buka editor GUI langsung di dalam game dengan background blur transparan. Geser dan atur tombol sesuai HUD Minecraft secara live!",
+                                            color = Color(0xFF94A3B8),
+                                            fontSize = 10.sp,
+                                            lineHeight = 14.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(
+                                                    Brush.horizontalGradient(
+                                                        colors = listOf(
+                                                            Color(0xFF10B981),
+                                                            Color(0xFF059669)
+                                                        )
+                                                    )
+                                                )
+                                                .clickable {
+                                                    onDismissRequest()
+                                                    onOpenCustomGui()
+                                                }
+                                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.Tune,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(10.dp))
+                                                Column {
+                                                    Text(
+                                                        text = "EDIT TOMBOL IN-GAME",
+                                                        color = Color.White,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Black
+                                                    )
+                                                    Text(
+                                                        text = "Background live blur · Atur posisi tombol sekarang",
+                                                        color = Color(0xFFD1FAE5),
+                                                        fontSize = 9.sp
+                                                    )
+                                                }
+                                            }
+                                            Icon(
+                                                imageVector = Icons.Outlined.ChevronRight,
+                                                contentDescription = null,
+                                                tint = Color.White,
+                                                modifier = Modifier.size(18.dp)
                                             )
                                         }
                                     }
