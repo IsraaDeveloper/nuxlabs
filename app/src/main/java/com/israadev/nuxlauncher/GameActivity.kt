@@ -8,6 +8,8 @@ import com.israadev.nuxlauncher.ui.components.GameLoadingOverlay
 import com.israadev.nuxlauncher.ui.dialogs.InGameSettingsDialog
 import com.israadev.nuxlauncher.ui.screens.CustomGuiEditorScreen
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -277,35 +279,35 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
     }
 
     private fun applyImmersiveFullscreen() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val params = window.attributes
-            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-            window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN)
-            window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN)
-            window.attributes = params
-        }
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.insetsController?.let { controller ->
-                controller.hide(
-                    android.view.WindowInsets.Type.statusBars() or
-                    android.view.WindowInsets.Type.navigationBars() or
-                    android.view.WindowInsets.Type.displayCutout()
-                )
-                controller.systemBarsBehavior =
-                    android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val params = window.attributes
+                params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                window.attributes = params
             }
-        }
-        @Suppress("DEPRECATION")
-        window.decorView.systemUiVisibility = (
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            or View.SYSTEM_UI_FLAG_FULLSCREEN
-        )
+            WindowCompat.setDecorFitsSystemWindows(window, false)
+
+            val decor = window.peekDecorView() ?: try { window.decorView } catch (_: Throwable) { null }
+            if (decor != null) {
+                val insetsController = WindowCompat.getInsetsController(window, decor)
+                insetsController.hide(
+                    WindowInsetsCompat.Type.systemBars() or
+                    WindowInsetsCompat.Type.displayCutout()
+                )
+                insetsController.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+                @Suppress("DEPRECATION")
+                decor.systemUiVisibility = (
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_FULLSCREEN
+                )
+            }
+        } catch (_: Throwable) {}
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -326,7 +328,15 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
         CallbackBridge.sContext = this
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        applyImmersiveFullscreen()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val params = window.attributes
+            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN)
+            window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN)
+            window.attributes = params
+        }
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         instanceName = intent.getStringExtra(EXTRA_INSTANCE_NAME) ?: "Minecraft"
         mcVersion = intent.getStringExtra(EXTRA_MC_VERSION) ?: "Unknown"
@@ -400,6 +410,7 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
         }
 
         setContentView(composeView)
+        applyImmersiveFullscreen()
     }
 
     private fun setupLogger() {
