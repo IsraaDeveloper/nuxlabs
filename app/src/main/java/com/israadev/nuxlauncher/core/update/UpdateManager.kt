@@ -45,7 +45,6 @@ object UpdateManager {
                 .url(UPDATE_ENDPOINT)
                 .header("User-Agent", "NuxLauncher-Android/1.0.4")
                 .get()
-            NuxConfig.applyAuthHeaders(reqBuilder)
             val req = reqBuilder.build()
 
             client.newCall(req).execute().use { resp ->
