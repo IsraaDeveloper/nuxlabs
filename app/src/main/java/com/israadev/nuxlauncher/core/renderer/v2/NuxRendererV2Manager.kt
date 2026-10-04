@@ -307,6 +307,18 @@ object NuxRendererV2Manager {
                 value = "1",
                 title = "Use ANGLE GLES libraries",
                 toggle = false
+            ),
+            EnvConfig.ToggleableEnv(
+                key = "allow_glsl_extension_directive_midshader",
+                value = "true",
+                title = "Allow GLSL extension directive midshader",
+                toggle = true
+            ),
+            EnvConfig.ToggleableEnv(
+                key = "allow_higher_compat_version",
+                value = "true",
+                title = "Allow higher OpenGL compatibility version",
+                toggle = true
             )
         )
 
@@ -334,6 +346,15 @@ object NuxRendererV2Manager {
         if (targetData != null) {
             result.putAll(targetData.getEffectiveEnv())
         }
+
+        // Pastikan flag GLSL & Extension compatibility selalu aktif untuk MobileGL & Custom Renderer
+        // (Standar kompatibilitas Zalith Launcher 2 untuk mencegah crash parsing shader Mojang & Iris)
+        if (targetRenderer.id != "gl4es" && targetRenderer.rendererId != "opengles2") {
+            result["allow_glsl_extension_directive_midshader"] = "true"
+            result["allow_higher_compat_version"] = "true"
+            result["force_glsl_extensions_warn"] = "true"
+        }
+
         return result
     }
 }

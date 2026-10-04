@@ -53,7 +53,10 @@ object NuxRendererRegistry {
             "POJAVEXEC_EGL" to "libmobileglues.so",
             "LIBGL_EGL" to "libmobileglues.so",
             "MG_COUNT_LAUNCH" to "1",
-            "SDL_OPENGL_FORCE_SRGB_FRAMEBUFFER" to "0"
+            "SDL_OPENGL_FORCE_SRGB_FRAMEBUFFER" to "0",
+            "allow_higher_compat_version" to "true",
+            "allow_glsl_extension_directive_midshader" to "true",
+            "force_glsl_extensions_warn" to "true"
         )
     )
 
@@ -115,6 +118,9 @@ object NuxRendererRegistry {
             "MESA_LOADER_DRIVER_OVERRIDE" to "freedreno",
             "MESA_GL_VERSION_OVERRIDE" to "4.6",
             "MESA_GLSL_VERSION_OVERRIDE" to "460",
+            "force_glsl_extensions_warn" to "true",
+            "allow_higher_compat_version" to "true",
+            "allow_glsl_extension_directive_midshader" to "true",
             "LIB_MESA_NAME" to "libOSMesa_8.so"
         )
     )
@@ -133,6 +139,9 @@ object NuxRendererRegistry {
             "MESA_LOADER_DRIVER_OVERRIDE" to "virgl",
             "MESA_GL_VERSION_OVERRIDE" to "4.6",
             "MESA_GLSL_VERSION_OVERRIDE" to "460",
+            "force_glsl_extensions_warn" to "true",
+            "allow_higher_compat_version" to "true",
+            "allow_glsl_extension_directive_midshader" to "true",
             "LIB_MESA_NAME" to "libOSMesa_2121.so"
         )
     )
@@ -152,6 +161,9 @@ object NuxRendererRegistry {
             "MESA_LOADER_DRIVER_OVERRIDE" to "panfrost",
             "MESA_GL_VERSION_OVERRIDE" to "3.3",
             "MESA_GLSL_VERSION_OVERRIDE" to "330",
+            "force_glsl_extensions_warn" to "true",
+            "allow_higher_compat_version" to "true",
+            "allow_glsl_extension_directive_midshader" to "true",
             "LIB_MESA_NAME" to "libOSMesa_2300d.so"
         )
     )

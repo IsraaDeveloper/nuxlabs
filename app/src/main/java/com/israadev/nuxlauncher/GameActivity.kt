@@ -654,6 +654,16 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                     LoggerBridge.append("▷ [Renderer V2 Env Warning] Gagal menginjeksi V2 env: ${e.message}")
                 }
 
+                // Pastikan flag GLSL & Extension compatibility selalu aktif untuk non-GL4ES renderers
+                // (Standar kompatibilitas Zalith Launcher 2 untuk MobileGL, Zink, Mesa, dan Custom Renderer)
+                val isPureLegacyGl4es = targetRenderer.id == "gl4es" || targetRenderer.rendererId == "opengles2"
+                if (!isPureLegacyGl4es) {
+                    Os.setenv("allow_higher_compat_version", "true", true)
+                    Os.setenv("allow_glsl_extension_directive_midshader", "true", true)
+                    Os.setenv("force_glsl_extensions_warn", "true", true)
+                    LoggerBridge.append("▷ [GLSL Compat] Injected allow_glsl_extension_directive_midshader=true, allow_higher_compat_version=true, force_glsl_extensions_warn=true")
+                }
+
                 // Apply EGL specific library path if specified (full absolute path for plugins)
                 val eglPath = if (!targetRenderer.eglName.isNullOrBlank()) {
                     val rawEgl = targetRenderer.eglName!!
