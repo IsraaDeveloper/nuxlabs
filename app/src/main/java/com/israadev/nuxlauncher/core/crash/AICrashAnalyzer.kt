@@ -74,7 +74,9 @@ object AICrashAnalyzer {
 
     fun getEffectiveModel(settings: LauncherSettings?): String {
         val userModel = settings?.aiModel?.trim() ?: ""
-        return if (userModel.isNotBlank() && !userModel.contains("nemotron-3-ultra-550b")) userModel else DEFAULT_MODEL
+        val isDeprecated = userModel.contains("qwen3.8-27b", ignoreCase = true) ||
+                           userModel.contains("nemotron-3-ultra-550b", ignoreCase = true)
+        return if (userModel.isNotBlank() && !isDeprecated) userModel else DEFAULT_MODEL
     }
 
     /**
@@ -389,6 +391,61 @@ object AICrashAnalyzer {
                         val errBody = response.body?.string() ?: ""
                         response.close()
                         val msg = parseErrorMessage(errBody)
+
+                        val isModelUnavailable = code == 404 ||
+                                errBody.contains("unavailable", ignoreCase = true) ||
+                                errBody.contains("No endpoints", ignoreCase = true)
+
+                        if (isModelUnavailable && payload.get("model")?.asString != DEFAULT_MODEL) {
+                            android.util.Log.w("AICrashAnalyzer", "Model ${payload.get("model")?.asString} tidak tersedia ($code), otomatis beralih ke $DEFAULT_MODEL...")
+                            payload.addProperty("model", DEFAULT_MODEL)
+                            val fbReq = Request.Builder()
+                                .url(OPENROUTER_ENDPOINT)
+                                .addHeader("Authorization", "Bearer $currentKey")
+                                .addHeader("HTTP-Referer", "https://nuxlauncher.site")
+                                .addHeader("X-Title", "NUX Launcher")
+                                .addHeader("Content-Type", "application/json")
+                                .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                                .build()
+                            val fbResp = httpClient.newCall(fbReq).execute()
+                            if (fbResp.isSuccessful) {
+                                val fbSource = fbResp.body?.source()
+                                if (fbSource != null) {
+                                    val fbAccumulated = StringBuilder()
+                                    fbResp.use {
+                                        while (!fbSource.exhausted()) {
+                                            val fbLine = fbSource.readUtf8Line() ?: break
+                                            val fbTrimmed = fbLine.trim()
+                                            if (!fbTrimmed.startsWith("data:")) continue
+                                            val fbData = fbTrimmed.removePrefix("data:").trim()
+                                            if (fbData == "[DONE]") break
+                                            try {
+                                                val chunkObj = JsonParser.parseString(fbData).asJsonObject
+                                                val choices = chunkObj.getAsJsonArray("choices")
+                                                if (choices != null && choices.size() > 0) {
+                                                    val delta = choices[0].asJsonObject.getAsJsonObject("delta")
+                                                    if (delta != null && delta.has("content")) {
+                                                        val contentChunk = delta.get("content").asString
+                                                        if (!contentChunk.isNullOrEmpty()) {
+                                                            fbAccumulated.append(contentChunk)
+                                                            emit(AIStreamState.Streaming(fbAccumulated.toString(), contentChunk))
+                                                        }
+                                                    }
+                                                }
+                                            } catch (_: Exception) {}
+                                        }
+                                    }
+                                    if (fbAccumulated.isNotEmpty()) {
+                                        emit(AIStreamState.Completed(fbAccumulated.toString()))
+                                        streamSucceeded = true
+                                        break
+                                    }
+                                }
+                            } else {
+                                fbResp.close()
+                            }
+                        }
+
                         val isLimitOrRecoverable = code == 429 || code == 402 || code == 503 || code == 401 || code == 403
 
                         if (isLimitOrRecoverable && index < keysToTry.size - 1) {

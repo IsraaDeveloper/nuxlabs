@@ -2036,16 +2036,13 @@ fun SettingsScreen(
                             Triple("nvidia/nemotron-3-super-120b-a12b:free", "NVIDIA Nemotron 3 Super 120B (Free)", "Penalaran Mendalam NVIDIA, Pemahaman Log Akurat"),
                             Triple("google/gemini-2.0-flash-exp:free", "Gemini 2.0 Flash (Free)", "Google Generasi Terbaru, Respons Instan"),
                             Triple("meta-llama/llama-3.3-70b-instruct:free", "Llama 3.3 70B (Free)", "Analisis Mendalam & Logika Akurat"),
-                            Triple("qwen/qwen3.8-27b:free", "Qwen 3.8 27B (Free)", "Model Cepat & Ringan"),
                             Triple("deepseek/deepseek-r1:free", "DeepSeek R1 (Free)", "Penalaran Solusi Mod Detail"),
                             Triple("mistralai/mistral-small-24b-instruct-2501:free", "Mistral Small 24B (Free)", "Efisien & Diagnostik Log Tepat")
                         )
 
-                        val effectiveCurrentModel = if (aiModel.isBlank() || aiModel.contains("nemotron-3-ultra-550b")) {
-                            com.israadev.nuxlauncher.core.crash.AICrashAnalyzer.DEFAULT_MODEL
-                        } else {
-                            aiModel
-                        }
+                        val effectiveCurrentModel = com.israadev.nuxlauncher.core.crash.AICrashAnalyzer.getEffectiveModel(
+                            com.israadev.nuxlauncher.core.models.LauncherSettings(aiModel = aiModel)
+                        )
 
                         models.forEach { (mId, mTitle, mDesc) ->
                             val isSelected = effectiveCurrentModel == mId

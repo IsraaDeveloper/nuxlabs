@@ -155,7 +155,12 @@ object NuxAIEngine {
         emit(AIStreamState.Connecting)
 
         val keysToTry = AICrashAnalyzer.getEffectiveApiKeys(settings)
-        val model = AICrashAnalyzer.getEffectiveModel(settings)
+        val initialModel = AICrashAnalyzer.getEffectiveModel(settings)
+        val candidateModels = if (initialModel != AICrashAnalyzer.DEFAULT_MODEL) {
+            listOf(initialModel, AICrashAnalyzer.DEFAULT_MODEL)
+        } else {
+            listOf(initialModel)
+        }
 
         val systemInstruction = """
             Kamu adalah NUX AI, Asisten Pintar & Diagnostic Engineer resmi NUX Launcher (Minecraft Java Edition di Android via Pojav runtime).
@@ -188,7 +193,7 @@ object NuxAIEngine {
         }
 
         val payload = JsonObject().apply {
-            addProperty("model", model)
+            addProperty("model", candidateModels.first())
             add("messages", messagesArray)
             addProperty("stream", true)
         }
@@ -196,79 +201,94 @@ object NuxAIEngine {
         var streamSucceeded = false
         var lastErrorMessage = "Gagal menghubungi AI server."
 
-        for ((index, currentKey) in keysToTry.withIndex()) {
-            val request = Request.Builder()
-                .url(OPENROUTER_ENDPOINT)
-                .addHeader("Authorization", "Bearer $currentKey")
-                .addHeader("HTTP-Referer", "https://nuxlauncher.site")
-                .addHeader("X-Title", "NUX Launcher Mobile")
-                .addHeader("Content-Type", "application/json")
-                .post(payload.toString().toRequestBody("application/json".toMediaType()))
-                .build()
+        outer@ for (modelCandidate in candidateModels) {
+            payload.addProperty("model", modelCandidate)
 
-            try {
-                val response = httpClient.newCall(request).execute()
-                val code = response.code
+            for ((index, currentKey) in keysToTry.withIndex()) {
+                val request = Request.Builder()
+                    .url(OPENROUTER_ENDPOINT)
+                    .addHeader("Authorization", "Bearer $currentKey")
+                    .addHeader("HTTP-Referer", "https://nuxlauncher.site")
+                    .addHeader("X-Title", "NUX Launcher Mobile")
+                    .addHeader("Content-Type", "application/json")
+                    .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                    .build()
 
-                if (!response.isSuccessful) {
-                    val errBody = response.body?.string() ?: ""
-                    response.close()
-                    val isLimit = code == 429 || code == 402 || code == 503 || code == 401 || code == 403
-                    if (isLimit && index < keysToTry.size - 1) {
-                        android.util.Log.w("NuxAIEngine", "Key #${index + 1} terkena limit ($code). Mengalihkan ke Key cadangan #${index + 2}...")
-                        continue
-                    } else {
-                        lastErrorMessage = "Gagal menghubungi server AI (HTTP $code): ${parseErrorMessage(errBody)}"
-                        if (index < keysToTry.size - 1) continue else break
+                try {
+                    val response = httpClient.newCall(request).execute()
+                    val code = response.code
+
+                    if (!response.isSuccessful) {
+                        val errBody = response.body?.string() ?: ""
+                        response.close()
+
+                        val isModelUnavailable = code == 404 ||
+                                errBody.contains("unavailable", ignoreCase = true) ||
+                                errBody.contains("No endpoints", ignoreCase = true)
+
+                        if (isModelUnavailable && modelCandidate != AICrashAnalyzer.DEFAULT_MODEL) {
+                            android.util.Log.w("NuxAIEngine", "Model $modelCandidate tidak tersedia ($code), otomatis beralih ke model cadangan ${AICrashAnalyzer.DEFAULT_MODEL}...")
+                            lastErrorMessage = parseErrorMessage(errBody)
+                            break // Langsung beralih ke kandidat model berikutnya di outer loop
+                        }
+
+                        val isLimit = code == 429 || code == 402 || code == 503 || code == 401 || code == 403
+                        if (isLimit && index < keysToTry.size - 1) {
+                            android.util.Log.w("NuxAIEngine", "Key #${index + 1} terkena limit ($code). Mengalihkan ke Key cadangan #${index + 2}...")
+                            continue
+                        } else {
+                            lastErrorMessage = "Gagal menghubungi server AI (HTTP $code): ${parseErrorMessage(errBody)}"
+                            if (index < keysToTry.size - 1) continue else break
+                        }
                     }
-                }
 
-                val source = response.body?.source()
-                if (source == null) {
-                    response.close()
-                    if (index < keysToTry.size - 1) continue
-                    lastErrorMessage = "Respon server AI kosong."
-                    break
-                }
+                    val source = response.body?.source()
+                    if (source == null) {
+                        response.close()
+                        if (index < keysToTry.size - 1) continue
+                        lastErrorMessage = "Respon server AI kosong."
+                        break
+                    }
 
-                val accumulatedText = StringBuilder()
-                response.use {
-                    while (!source.exhausted()) {
-                        val line = source.readUtf8Line() ?: break
-                        val trimmed = line.trim()
-                        if (!trimmed.startsWith("data:")) continue
-                        val data = trimmed.removePrefix("data:").trim()
-                        if (data == "[DONE]") break
+                    val accumulatedText = StringBuilder()
+                    response.use {
+                        while (!source.exhausted()) {
+                            val line = source.readUtf8Line() ?: break
+                            val trimmed = line.trim()
+                            if (!trimmed.startsWith("data:")) continue
+                            val data = trimmed.removePrefix("data:").trim()
+                            if (data == "[DONE]") break
 
-                        try {
-                            val chunkJson = JsonParser.parseString(data).asJsonObject
-                            val choices = chunkJson.getAsJsonArray("choices")
-                            if (choices != null && choices.size() > 0) {
-                                val delta = choices[0].asJsonObject.getAsJsonObject("delta")
-                                val textChunk = delta?.get("content")?.asString ?: ""
-                                if (textChunk.isNotEmpty()) {
-                                    accumulatedText.append(textChunk)
-                                    emit(AIStreamState.Streaming(accumulatedText.toString(), textChunk))
+                            try {
+                                val chunkJson = JsonParser.parseString(data).asJsonObject
+                                val choices = chunkJson.getAsJsonArray("choices")
+                                if (choices != null && choices.size() > 0) {
+                                    val delta = choices[0].asJsonObject.getAsJsonObject("delta")
+                                    val textChunk = delta?.get("content")?.asString ?: ""
+                                    if (textChunk.isNotEmpty()) {
+                                        accumulatedText.append(textChunk)
+                                        emit(AIStreamState.Streaming(accumulatedText.toString(), textChunk))
+                                    }
                                 }
-                            }
-                        } catch (_: Exception) {}
+                            } catch (_: Exception) {}
+                        }
                     }
-                }
 
-                if (accumulatedText.isNotEmpty()) {
-                    emit(AIStreamState.Completed(accumulatedText.toString()))
-                    streamSucceeded = true
-                    break
-                } else {
-                    if (index < keysToTry.size - 1) continue
-                    lastErrorMessage = "AI tidak mengembalikan respon untuk pertanyaan ini."
+                    if (accumulatedText.isNotEmpty()) {
+                        emit(AIStreamState.Completed(accumulatedText.toString()))
+                        streamSucceeded = true
+                        break@outer
+                    } else {
+                        if (index < keysToTry.size - 1) continue
+                        lastErrorMessage = "AI tidak mengembalikan respon untuk pertanyaan ini."
+                    }
+                } catch (e: Exception) {
+                    if (index < keysToTry.size - 1) {
+                        android.util.Log.w("NuxAIEngine", "Koneksi Key #${index + 1} terputus (${e.message}). Mengalihkan ke Key #${index + 2}...")
+                        continue
+                    }
+                    lastErrorMessage = "Koneksi terputus: ${e.localizedMessage ?: "Jaringan tidak stabil"}"
                 }
-            } catch (e: Exception) {
-                if (index < keysToTry.size - 1) {
-                    android.util.Log.w("NuxAIEngine", "Koneksi Key #${index + 1} terputus (${e.message}). Mengalihkan ke Key #${index + 2}...")
-                    continue
-                }
-                lastErrorMessage = "Koneksi terputus: ${e.localizedMessage ?: "Jaringan tidak stabil"}"
             }
         }
 

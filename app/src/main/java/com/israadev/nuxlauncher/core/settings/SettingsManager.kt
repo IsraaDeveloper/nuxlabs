@@ -26,15 +26,26 @@ object SettingsManager {
                 val loaded = gson.fromJson(json, LauncherSettings::class.java)
                 if (loaded != null) {
                     val prefs = context.getSharedPreferences("nux_settings_mig", Context.MODE_PRIVATE)
-                    val migrated = prefs.getBoolean("migrated_ai_auto_analyze_default_off", false)
-                    val finalSettings = if (!migrated) {
+                    val migratedAutoAnalyze = prefs.getBoolean("migrated_ai_auto_analyze_default_off", false)
+                    val isDeprecatedModel = loaded.aiModel.contains("qwen3.8-27b", ignoreCase = true) ||
+                                            loaded.aiModel.contains("nemotron-3-ultra-550b", ignoreCase = true)
+
+                    var finalSettings = loaded
+                    var needsSave = false
+
+                    if (!migratedAutoAnalyze) {
                         prefs.edit().putBoolean("migrated_ai_auto_analyze_default_off", true).apply()
-                        loaded.copy(aiAutoAnalyze = false)
-                    } else {
-                        loaded
+                        finalSettings = finalSettings.copy(aiAutoAnalyze = false)
+                        needsSave = true
                     }
+
+                    if (isDeprecatedModel || finalSettings.aiModel.isBlank()) {
+                        finalSettings = finalSettings.copy(aiModel = com.israadev.nuxlauncher.core.crash.AICrashAnalyzer.DEFAULT_MODEL)
+                        needsSave = true
+                    }
+
                     _settings.value = finalSettings
-                    if (!migrated) {
+                    if (needsSave) {
                         save(context)
                     }
                     return
