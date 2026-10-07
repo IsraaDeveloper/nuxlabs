@@ -2013,89 +2013,7 @@ fun SettingsScreen(
                             )
                         }
 
-                        // Section 2: Pemilihan Model AI
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Outlined.Psychology,
-                                contentDescription = null,
-                                tint = NuxColors.MintGreen,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "MODEL KECERDASAN BUATAN (AI)",
-                                fontWeight = FontWeight.Black,
-                                fontSize = 11.sp,
-                                color = Color.White
-                            )
-                        }
-
-                        // Model Chips / Options (Hanya Model Gratis OpenRouter)
-                        val models = listOf(
-                            Triple("nvidia/nemotron-3.5-lightning:free", "NVIDIA Nemotron 3.5 Lightning (Free)", "Model Flagship NVIDIA Cepat, Responsif & Stabil"),
-                            Triple("nvidia/nemotron-3-super-120b-a12b:free", "NVIDIA Nemotron 3 Super 120B (Free)", "Penalaran Mendalam NVIDIA, Pemahaman Log Akurat"),
-                            Triple("google/gemini-2.0-flash-exp:free", "Gemini 2.0 Flash (Free)", "Google Generasi Terbaru, Respons Instan"),
-                            Triple("meta-llama/llama-3.3-70b-instruct:free", "Llama 3.3 70B (Free)", "Analisis Mendalam & Logika Akurat"),
-                            Triple("deepseek/deepseek-r1:free", "DeepSeek R1 (Free)", "Penalaran Solusi Mod Detail"),
-                            Triple("mistralai/mistral-small-24b-instruct-2501:free", "Mistral Small 24B (Free)", "Efisien & Diagnostik Log Tepat")
-                        )
-
-                        val effectiveCurrentModel = com.israadev.nuxlauncher.core.crash.AICrashAnalyzer.getEffectiveModel(
-                            com.israadev.nuxlauncher.core.models.LauncherSettings(aiModel = aiModel)
-                        )
-
-                        models.forEach { (mId, mTitle, mDesc) ->
-                            val isSelected = effectiveCurrentModel == mId
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(
-                                        if (isSelected) NuxColors.ForestGreen.copy(alpha = 0.25f)
-                                        else NuxColors.SurfaceInput
-                                    )
-                                    .border(
-                                        1.dp,
-                                        if (isSelected) NuxColors.ForestGreen else NuxColors.CardBorder,
-                                        RoundedCornerShape(6.dp)
-                                    )
-                                    .clickable {
-                                        aiModel = mId
-                                        commitSettings()
-                                    }
-                                    .padding(horizontal = 10.dp, vertical = 7.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                RadioButton(
-                                    selected = isSelected,
-                                    onClick = {
-                                        aiModel = mId
-                                        commitSettings()
-                                    },
-                                    colors = RadioButtonDefaults.colors(
-                                        selectedColor = NuxColors.MintGreen,
-                                        unselectedColor = NuxColors.GrayNeutral
-                                    ),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = mTitle,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color.White else NuxColors.GrayNeutral
-                                    )
-                                    Text(
-                                        text = mDesc,
-                                        fontSize = 8.5.sp,
-                                        color = if (isSelected) NuxColors.MintGreen else NuxColors.GrayNeutral.copy(alpha = 0.7f)
-                                    )
-                                }
-                            }
-                        }
-
-                        // Section 3: API Key Configuration
+                        // Section 2: API Key Configuration
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Outlined.Key,
@@ -2165,7 +2083,7 @@ fun SettingsScreen(
                                     isTestingAiConnection = true
                                     aiConnectionTestResult = null
                                     scope.launch {
-                                        val res = AICrashAnalyzer.testConnection(aiApiKey, aiModel)
+                                        val res = AICrashAnalyzer.testConnection(aiApiKey, "")
                                         isTestingAiConnection = false
                                         res.onSuccess { msg ->
                                             isAiConnectionSuccess = true
