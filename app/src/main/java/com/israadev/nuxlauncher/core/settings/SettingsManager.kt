@@ -25,7 +25,18 @@ object SettingsManager {
                 val json = file.readText()
                 val loaded = gson.fromJson(json, LauncherSettings::class.java)
                 if (loaded != null) {
-                    _settings.value = loaded
+                    val prefs = context.getSharedPreferences("nux_settings_mig", Context.MODE_PRIVATE)
+                    val migrated = prefs.getBoolean("migrated_ai_auto_analyze_default_off", false)
+                    val finalSettings = if (!migrated) {
+                        prefs.edit().putBoolean("migrated_ai_auto_analyze_default_off", true).apply()
+                        loaded.copy(aiAutoAnalyze = false)
+                    } else {
+                        loaded
+                    }
+                    _settings.value = finalSettings
+                    if (!migrated) {
+                        save(context)
+                    }
                     return
                 }
             } catch (e: Exception) {

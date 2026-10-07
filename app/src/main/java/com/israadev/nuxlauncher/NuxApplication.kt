@@ -10,6 +10,9 @@ class NuxApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        org.lwjgl.glfw.CallbackBridge.sContext = this
+        com.movtery.zalithlauncher.bridge.ZLNativeInvoker.appContext = this
+
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {

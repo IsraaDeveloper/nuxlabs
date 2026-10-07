@@ -63,6 +63,11 @@ fun NuxCrashDialog(
         mutableStateOf(com.israadev.nuxlauncher.core.crash.AICrashQuotaManager.getRemainingQuota(context, settings))
     }
 
+    LaunchedEffect(Unit) {
+        val synced = com.israadev.nuxlauncher.core.crash.AICrashQuotaManager.syncQuotaFromDatabase(context, settings)
+        remainingQuota = synced
+    }
+
     LaunchedEffect(settings.aiApiKey) {
         remainingQuota = com.israadev.nuxlauncher.core.crash.AICrashQuotaManager.getRemainingQuota(context, settings)
     }

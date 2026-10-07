@@ -88,6 +88,14 @@ data class SubscriptionInfo(
     val redeemedKey: String? = null
 )
 
+data class AiQuotaInfo(
+    val date: String = "",
+    val usedCount: Int = 0,
+    val remainingQuota: Int = 5,
+    val dailyLimit: Int = 5,
+    val isUnlimited: Boolean = false
+)
+
 object AuthService {
     private val gson = Gson()
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
@@ -169,6 +177,88 @@ object AuthService {
         }
 
         Result.failure(lastError ?: Exception("Gagal menghubungi server autentikasi"))
+    }
+
+    suspend fun getApi(endpoint: String, bearerToken: String? = null): Result<String> = withContext(Dispatchers.IO) {
+        if (CANDIDATE_BASES.isEmpty()) {
+            return@withContext Result.failure(Exception("Server autentikasi belum dikonfigurasi. Pastikan 'nux.server.url' diisi di local.properties."))
+        }
+        var lastError: Exception? = null
+
+        for (base in CANDIDATE_BASES) {
+            try {
+                val url = "$base$endpoint"
+                val reqBuilder = Request.Builder()
+                    .url(url)
+                    .get()
+                if (!bearerToken.isNullOrBlank()) {
+                    reqBuilder.addHeader("Authorization", "Bearer $bearerToken")
+                }
+                NuxConfig.applyAuthHeaders(reqBuilder, includeBearerIfEmpty = bearerToken.isNullOrBlank())
+                val request = reqBuilder.build()
+
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string() ?: ""
+
+                try {
+                    val json = gson.fromJson(responseBody, JsonObject::class.java)
+                    if (json != null) {
+                        val errorStr = json.get("error").asStringOrNull()
+                        val isSuccess = json.get("success").asBooleanOrDefault(true)
+                        if (!isSuccess && !errorStr.isNullOrBlank()) {
+                            return@withContext Result.failure(Exception(errorStr))
+                        }
+                    }
+                } catch (_: Exception) {}
+
+                if (response.isSuccessful) {
+                    return@withContext Result.success(responseBody)
+                }
+
+                lastError = Exception("Server merespon kode: ${response.code}")
+            } catch (e: Exception) {
+                lastError = e
+            }
+        }
+
+        Result.failure(lastError ?: Exception("Gagal menghubungi server autentikasi"))
+    }
+
+    /**
+     * Mengambil status kuota harian AI analisis log dari database server.
+     */
+    suspend fun fetchAiQuota(uid: String): Result<AiQuotaInfo> {
+        val encodedUid = try { java.net.URLEncoder.encode(uid.trim(), "UTF-8") } catch (_: Exception) { uid.trim() }
+        val endpoint = "/api/auth/android/ai-quota?uid=$encodedUid"
+        return getApi(endpoint).mapCatching { jsonStr ->
+            val obj = gson.fromJson(jsonStr, JsonObject::class.java)
+            AiQuotaInfo(
+                date = obj.get("date").asStringOrNull() ?: "",
+                usedCount = obj.get("usedCount").asIntOrDefault(0),
+                remainingQuota = obj.get("remainingQuota").asIntOrDefault(5),
+                dailyLimit = obj.get("dailyLimit").asIntOrDefault(5),
+                isUnlimited = obj.get("isUnlimited").asBooleanOrDefault(false)
+            )
+        }
+    }
+
+    /**
+     * Mengonsumsi 1 kuota harian AI analisis log di database server.
+     */
+    suspend fun consumeAiQuota(uid: String): Result<AiQuotaInfo> {
+        val payload = JsonObject().apply {
+            addProperty("uid", uid.trim())
+        }
+        return postApi("/api/auth/android/ai-quota", payload.toString()).mapCatching { jsonStr ->
+            val obj = gson.fromJson(jsonStr, JsonObject::class.java)
+            AiQuotaInfo(
+                date = obj.get("date").asStringOrNull() ?: "",
+                usedCount = obj.get("usedCount").asIntOrDefault(0),
+                remainingQuota = obj.get("remainingQuota").asIntOrDefault(0),
+                dailyLimit = obj.get("dailyLimit").asIntOrDefault(5),
+                isUnlimited = obj.get("isUnlimited").asBooleanOrDefault(false)
+            )
+        }
     }
 
     /**

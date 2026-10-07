@@ -16,6 +16,8 @@ if (localPropertiesFile.exists()) {
 val rawServerUrl: String = localProperties.getProperty("nux.server.url") ?: ""
 val rawServerApiKey: String = localProperties.getProperty("nux.server.api.key") ?: ""
 val rawAiApiKey: String = localProperties.getProperty("nux.ai.api.key") ?: ""
+val rawAiApiKey2: String = localProperties.getProperty("nux.ai.api.key2") ?: ""
+val rawAiApiKey3: String = localProperties.getProperty("nux.ai.api.key3") ?: ""
 
 android {
     namespace = "com.israadev.nuxlauncher"
@@ -25,12 +27,14 @@ android {
         applicationId = "com.israadev.nuxlauncher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 10
-        versionName = "1.0.9"
+        versionCode = 14
+        versionName = "1.1.3"
 
         buildConfigField("String", "SERVER_BASE_URL", "\"$rawServerUrl\"")
         buildConfigField("String", "SERVER_API_KEY", "\"$rawServerApiKey\"")
         buildConfigField("String", "DEFAULT_AI_API_KEY", "\"$rawAiApiKey\"")
+        buildConfigField("String", "DEFAULT_AI_API_KEY_2", "\"$rawAiApiKey2\"")
+        buildConfigField("String", "DEFAULT_AI_API_KEY_3", "\"$rawAiApiKey3\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

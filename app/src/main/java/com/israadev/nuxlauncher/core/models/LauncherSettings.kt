@@ -34,7 +34,7 @@ data class LauncherSettings(
     val heroAnimationRotation: Int = 0, // 0, 90, 180, 270
 
     // AI Crash Analytics (OpenRouter AI)
-    val aiAutoAnalyze: Boolean = true,
+    val aiAutoAnalyze: Boolean = false,
     val aiApiKey: String = "",
     val aiModel: String = ""
 )

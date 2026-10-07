@@ -42,10 +42,7 @@ val NUX_NAV_ITEMS = listOf(
     NuxNavItem("home", Icons.Outlined.Home, "Home"),
     NuxNavItem("accounts", Icons.Outlined.Person, "Accounts"),
     NuxNavItem("mods", Icons.Outlined.Extension, "Mods"),
-    NuxNavItem("sandbox", Icons.Outlined.DeveloperBoard, "Sandbox VM"),
-    NuxNavItem("ai", Icons.Outlined.Psychology, "NuxGen AI"),
-    NuxNavItem("recorder", Icons.Outlined.Videocam, "Screen Recorder"),
-    NuxNavItem("servers", Icons.Outlined.Dns, "Multiplayer Servers"),
+    NuxNavItem("ai", Icons.Outlined.Psychology, "NUX AI"),
     NuxNavItem("friends", Icons.Outlined.Group, "Friends"),
     NuxNavItem("settings", Icons.Outlined.Settings, "Settings")
 )

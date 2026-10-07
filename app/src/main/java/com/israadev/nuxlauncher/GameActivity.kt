@@ -1,7 +1,9 @@
 package com.israadev.nuxlauncher
 
 import android.content.Context
+import android.util.Log
 import com.israadev.nuxlauncher.core.crash.CrashManager
+import com.israadev.nuxlauncher.core.renderer.MobileGluesConfigManager
 import com.israadev.nuxlauncher.core.renderer.NuxRendererRegistry
 import com.israadev.nuxlauncher.ui.activities.ErrorActivity
 import com.israadev.nuxlauncher.ui.components.GameLoadingOverlay
@@ -326,6 +328,7 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
             window.setSustainedPerformanceMode(true)
         }
         CallbackBridge.sContext = this
+        ZLNativeInvoker.appContext = this
 
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -684,17 +687,24 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                     "$nativeLibDir/$rendererSoName"
                 }
 
-                val actualPojavRenderer = when {
-                    rendererId.startsWith("opengles") -> rendererId
-                    rendererId.startsWith("vulkan") -> rendererId
-                    rendererId.startsWith("gallium") -> rendererId
-                    rendererId == "custom_gallium" -> rendererId
-                    else -> "opengles3"
-                }
+                val isPlugin = targetRenderer.isPlugin
+                val isMobileGlues = targetRenderer.id == "mobileglues" || 
+                        targetRenderer.rendererId.contains("mobileglue", ignoreCase = true) ||
+                        (targetRenderer.pluginPackageName?.contains("mobileglue", ignoreCase = true) == true)
+
+                // POJAV_RENDERER: Persis Zalith Launcher, gunakan rendererId asli tanpa dipaksa ke opengles3!
                 Os.setenv("POJAV_NATIVEDIR", nativeLibDir, true)
-                Os.setenv("POJAV_RENDERER", actualPojavRenderer, true)
+                Os.setenv("POJAV_RENDERER", rendererId, true)
                 Os.setenv("POJAV_SDL_REUSE_WINDOW", "1", true)
-                Os.setenv("SDL_OPENGL_LIBRARY", glLibPath, true)
+                Os.setenv("SDL_OPENGL_LIBRARY", rendererId, true)
+
+                if (rendererId.startsWith("opengles2")) {
+                    Os.setenv("LIBGL_ES", "2", true)
+                    Os.setenv("LIBGL_MIPMAP", "3", true)
+                    Os.setenv("LIBGL_NOERROR", "1", true)
+                    Os.setenv("LIBGL_NOINTOVLHACK", "1", true)
+                    Os.setenv("LIBGL_NORMALIZE", "1", true)
+                }
 
                 // Apply renderer specific environment variables
                 targetRenderer.envVariables.forEach { (k, v) ->
@@ -712,17 +722,7 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                     LoggerBridge.append("▷ [Renderer V2 Env Warning] Gagal menginjeksi V2 env: ${e.message}")
                 }
 
-                // Pastikan flag GLSL & Extension compatibility selalu aktif untuk non-GL4ES renderers
-                // (Standar kompatibilitas Zalith Launcher 2 untuk MobileGL, Zink, Mesa, dan Custom Renderer)
-                val isPureLegacyGl4es = targetRenderer.id == "gl4es" || targetRenderer.rendererId == "opengles2"
-                if (!isPureLegacyGl4es) {
-                    Os.setenv("allow_higher_compat_version", "true", true)
-                    Os.setenv("allow_glsl_extension_directive_midshader", "true", true)
-                    Os.setenv("force_glsl_extensions_warn", "true", true)
-                    LoggerBridge.append("▷ [GLSL Compat] Injected allow_glsl_extension_directive_midshader=true, allow_higher_compat_version=true, force_glsl_extensions_warn=true")
-                }
-
-                // Apply EGL specific library path if specified (full absolute path for plugins)
+                // Apply EGL specific library path if specified
                 val eglPath = if (!targetRenderer.eglName.isNullOrBlank()) {
                     val rawEgl = targetRenderer.eglName!!
                     if (rawEgl.startsWith("/")) rawEgl
@@ -731,8 +731,20 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
                 } else null
 
                 if (!eglPath.isNullOrBlank()) {
-                    Os.setenv("POJAVEXEC_EGL", eglPath, true)
+                    Os.setenv("POJAVEXEC_EGL", targetRenderer.eglName ?: eglPath, true)
                     Os.setenv("SDL_EGL_LIBRARY", eglPath, true)
+                }
+
+                // Standar Zalith: Jika renderer adalah plugin atau MobileGlues atau GL4ES, JANGAN override Mesa/Zink desktop!
+                val skipMesaOverrides = isPlugin || isMobileGlues || targetRenderer.id == "krypton" || targetRenderer.id == "gl4es" || rendererId.startsWith("opengles")
+                if (!skipMesaOverrides) {
+                    Os.setenv("MESA_LOADER_DRIVER_OVERRIDE", "zink", true)
+                    Os.setenv("MESA_GL_VERSION_OVERRIDE", "4.6", true)
+                    Os.setenv("MESA_GLSL_VERSION_OVERRIDE", "460", true)
+                    Os.setenv("allow_higher_compat_version", "true", true)
+                    Os.setenv("allow_glsl_extension_directive_midshader", "true", true)
+                    Os.setenv("force_glsl_extensions_warn", "true", true)
+                    LoggerBridge.append("▷ [Mesa Overrides] Applied Zink 4.6 desktop overrides")
                 }
 
                 // Apply Vulkan / Zink / Graphics API settings

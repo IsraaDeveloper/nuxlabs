@@ -143,24 +143,51 @@ public class CallbackBridge {
 
     @Keep
     public static String accessAndroidClipboard(int type, String copyContent) {
-        if (sContext == null) return "";
+        Log.i("CallbackBridge", "accessAndroidClipboard called: type=" + type + ", len=" + (copyContent != null ? copyContent.length() : 0));
+        Context ctx = sContext;
+        if (ctx == null) {
+            ctx = com.movtery.zalithlauncher.bridge.ZLNativeInvoker.getAppContext();
+        }
+        if (ctx == null) {
+            Log.w("CallbackBridge", "accessAndroidClipboard: Context is null!");
+            return "";
+        }
+        final Context finalCtx = ctx;
         try {
-            ClipboardManager clipboard = (ClipboardManager) sContext.getSystemService(Context.CLIPBOARD_SERVICE);
-            if (clipboard == null) return "";
             switch (type) {
                 case CLIPBOARD_COPY:
-                    ClipData clip = ClipData.newPlainText("NUX_CLIP", copyContent);
-                    clipboard.setPrimaryClip(clip);
+                    MAIN_HANDLER.post(() -> {
+                        try {
+                            ClipboardManager clipboard = (ClipboardManager) finalCtx.getSystemService(Context.CLIPBOARD_SERVICE);
+                            if (clipboard != null) {
+                                ClipData clip = ClipData.newPlainText("NuxLauncher", copyContent);
+                                clipboard.setPrimaryClip(clip);
+                                android.widget.Toast.makeText(finalCtx, "Teks error berhasil disalin ke papan klip", android.widget.Toast.LENGTH_SHORT).show();
+                            }
+                        } catch (Throwable t) {
+                            Log.e("CallbackBridge", "Failed to setPrimaryClip on UI thread", t);
+                        }
+                    });
                     return copyContent;
                 case CLIPBOARD_PASTE:
-                    if (clipboard.hasPrimaryClip() && clipboard.getPrimaryClipDescription() != null && clipboard.getPrimaryClipDescription().hasMimeType(android.content.ClipDescription.MIMETYPE_TEXT_PLAIN)) {
+                    ClipboardManager clipboard = (ClipboardManager) finalCtx.getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (clipboard != null && clipboard.hasPrimaryClip() && clipboard.getPrimaryClipDescription() != null && clipboard.getPrimaryClipDescription().hasMimeType(android.content.ClipDescription.MIMETYPE_TEXT_PLAIN)) {
                         CharSequence text = clipboard.getPrimaryClip().getItemAt(0).getText();
                         return text != null ? text.toString() : "";
                     }
                     return "";
+                case CLIPBOARD_OPEN:
+                    MAIN_HANDLER.post(() -> {
+                        try {
+                            com.movtery.zalithlauncher.bridge.ZLNativeInvoker.openLink(copyContent);
+                        } catch (Throwable t) {
+                            Log.e("CallbackBridge", "Failed to open link", t);
+                        }
+                    });
+                    return "";
             }
         } catch (Throwable e) {
-            Log.e("CallbackBridge", "accessAndroidClipboard error: " + e.getMessage());
+            Log.e("CallbackBridge", "accessAndroidClipboard error: " + e.getMessage(), e);
         }
         return "";
     }

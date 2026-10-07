@@ -79,12 +79,6 @@ object NuxRendererPluginManager {
                         }
                     }
 
-                    // MobileGlues, MobileGL, and OpenGL ES based plugins must map POJAV_RENDERER to opengles3 for libpojavexec bridge
-                    if (rendererId.equals("MobileGlues", ignoreCase = true) ||
-                        rendererId.equals("MobileGL", ignoreCase = true) ||
-                        (!rendererId.startsWith("opengles") && !rendererId.startsWith("vulkan") && !rendererId.startsWith("gallium") && rendererId != "custom_gallium")) {
-                        rendererId = "opengles3"
-                    }
 
                     val minVer = metaData.getString("minMCVer")
                     val maxVer = metaData.getString("maxMCVer")
@@ -138,7 +132,12 @@ object NuxRendererPluginManager {
                             badge = "Plugin Eksternal",
                             summary = "Renderer APK: $appLabel ($pkg)",
                             compatibility = "Minecraft (APK Plugin)",
-                            rendererId = "opengles3",
+                            rendererId = when {
+                                hasMobileGlues -> "mobileglues"
+                                hasMobileGL -> "mobilegl"
+                                hasGl4es -> "opengles2"
+                                else -> "opengles3"
+                            },
                             libraryName = glName,
                             eglName = eglName,
                             envVariables = mapOf(

@@ -9,20 +9,20 @@ import org.json.JSONObject
 import java.io.File
 
 data class MobileGluesConfig(
-    var enableANGLE: Boolean = true,
+    var enableANGLE: Boolean = false,
     var enableNoError: Boolean = true,
     var angleDepthClearFixMode: Boolean = false,
     var enableExtTimerQuery: Boolean = false,
     var enableExtComputeShader: Boolean = true,
     var enableExtDirectStateAccess: Boolean = true,
     var fsr1Setting: Int = 0,
-    var maxGlslCacheSize: Int = 121,
-    var customGLVersion: Int = 0,
-    var multidrawOrderArrays: String = "unroll,multiarrays,multiindirect",
-    var multidrawOrderElements: String = "unroll,indirect,multiarrays,multiindirect,multibasevertex",
-    var multidrawOrderElementsBaseVertex: String = "basevertex,compute,unroll,indirect,multibasevertex,multiindirect",
-    var multidrawOrderArraysIndirect: String = "indirect,multiindirect",
-    var multidrawOrderElementsIndirect: String = "indirect,multiindirect"
+    var maxGlslCacheSize: Int = 16,
+    var customGLVersion: String = "4.0.0",
+    var multidrawOrderArrays: String = "unroll",
+    var multidrawOrderElements: String = "unroll,indirect",
+    var multidrawOrderElementsBaseVertex: String = "basevertex,indirect,compute,unroll",
+    var multidrawOrderArraysIndirect: String = "indirect",
+    var multidrawOrderElementsIndirect: String = "indirect"
 )
 
 object MobileGluesConfigManager {
@@ -52,9 +52,13 @@ object MobileGluesConfigManager {
 
             if (obj.has("enableANGLE")) {
                 config.enableANGLE = obj.optInt("enableANGLE", 1) != 0
+            } else if (obj.has("enableAngle")) {
+                config.enableANGLE = obj.optInt("enableAngle", 1) != 0
             }
             if (obj.has("enableNoError")) {
                 config.enableNoError = obj.optInt("enableNoError", 3) != 0
+            } else if (obj.has("ignoreError")) {
+                config.enableNoError = obj.optInt("ignoreError", 1) != 0
             }
             if (obj.has("angleDepthClearFixMode")) {
                 config.angleDepthClearFixMode = obj.optInt("angleDepthClearFixMode", 0) != 0
@@ -75,7 +79,8 @@ object MobileGluesConfigManager {
                 config.maxGlslCacheSize = obj.optInt("maxGlslCacheSize", 121)
             }
             if (obj.has("customGLVersion")) {
-                config.customGLVersion = obj.optInt("customGLVersion", 0)
+                val rawVer = obj.optString("customGLVersion", "4.5")
+                config.customGLVersion = if (rawVer == "0" || rawVer.isBlank()) "4.5" else rawVer
             }
             if (obj.has("multidrawOrderArrays")) {
                 config.multidrawOrderArrays = obj.optString("multidrawOrderArrays", config.multidrawOrderArrays)
@@ -105,7 +110,9 @@ object MobileGluesConfigManager {
             val obj = JSONObject()
 
             obj.put("enableANGLE", if (config.enableANGLE) 1 else 0)
+            obj.put("enableAngle", if (config.enableANGLE) 1 else 0)
             obj.put("enableNoError", if (config.enableNoError) 3 else 0)
+            obj.put("ignoreError", if (config.enableNoError) 1 else 0)
             obj.put("angleDepthClearFixMode", if (config.angleDepthClearFixMode) 1 else 0)
             obj.put("enableExtTimerQuery", if (config.enableExtTimerQuery) 1 else 0)
             obj.put("enableExtComputeShader", if (config.enableExtComputeShader) 1 else 0)
@@ -152,4 +159,17 @@ object MobileGluesConfigManager {
             false
         }
     }
+
+    fun ensureConfigReady() {
+        try {
+            val file = getConfigFile()
+            if (!file.exists()) {
+                val defaultCfg = MobileGluesConfig()
+                saveConfig(defaultCfg)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to ensure MobileGlues config ready", e)
+        }
+    }
 }
+

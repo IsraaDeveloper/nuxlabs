@@ -137,7 +137,7 @@ fun DashboardScreen() {
                 NuxSidebar(
                     activeTab = currentTab,
                     onTabSelected = { tabId ->
-                        if (tabId == "home" || tabId == "accounts" || tabId == "settings" || tabId == "friends" || tabId == "mods") {
+                        if (tabId == "home" || tabId == "accounts" || tabId == "settings" || tabId == "friends" || tabId == "mods" || tabId == "ai") {
                             currentTab = tabId
                         } else {
                             Toast.makeText(context, "Fitur ${tabId.replaceFirstChar { it.uppercase() }} segera hadir di mobile!", Toast.LENGTH_SHORT).show()
@@ -157,6 +157,13 @@ fun DashboardScreen() {
                     )
                 } else if (currentTab == "mods") {
                     ModsScreen(
+                        onNavigateBack = { currentTab = "home" },
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                } else if (currentTab == "ai") {
+                    AIScreen(
                         onNavigateBack = { currentTab = "home" },
                         modifier = Modifier
                             .weight(1f)

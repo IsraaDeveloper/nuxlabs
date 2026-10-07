@@ -25,6 +25,12 @@ data class WorldInfo(
     val iconFile: File? = null
 )
 
+data class NuxInstalledModMeta(
+    val filename: String,
+    val projectId: String,
+    val versionId: String = ""
+)
+
 object NuxModManager {
 
     private val gson = Gson()
@@ -82,6 +88,30 @@ object NuxModManager {
         return dir
     }
 
+    private fun getMetadataFile(gameDir: File): File {
+        return File(gameDir, ".nux_installed_mods.json")
+    }
+
+    private fun loadInstalledModsMetadata(gameDir: File): MutableMap<String, NuxInstalledModMeta> {
+        val file = getMetadataFile(gameDir)
+        if (!file.exists()) return mutableMapOf()
+        return try {
+            val text = file.readText(Charsets.UTF_8)
+            val type = object : TypeToken<Map<String, NuxInstalledModMeta>>() {}.type
+            val map: Map<String, NuxInstalledModMeta>? = gson.fromJson(text, type)
+            map?.toMutableMap() ?: mutableMapOf()
+        } catch (_: Exception) {
+            mutableMapOf()
+        }
+    }
+
+    private fun saveInstalledModsMetadata(gameDir: File, map: Map<String, NuxInstalledModMeta>) {
+        try {
+            val file = getMetadataFile(gameDir)
+            file.writeText(gson.toJson(map), Charsets.UTF_8)
+        } catch (_: Exception) {}
+    }
+
     /**
      * Membaca semua item yang telah terpasang di dalam instance untuk jenis addon tertentu
      */
@@ -95,6 +125,7 @@ object NuxModManager {
         val gameDir = InstanceManager.getInstanceGameDir(context, instance)
         if (!targetDir.exists() || !targetDir.isDirectory) return@withContext emptyList()
 
+        val metaMap = loadInstalledModsMetadata(gameDir)
         val files = targetDir.listFiles() ?: return@withContext emptyList()
         val result = mutableListOf<InstalledModItem>()
 
@@ -178,9 +209,12 @@ object NuxModManager {
                 }
             }
 
+            val meta = metaMap[cleanFilename.lowercase()]
+            val finalId = meta?.projectId?.takeIf { it.isNotBlank() } ?: cleanFilename
+
             result.add(
                 InstalledModItem(
-                    id = cleanFilename,
+                    id = finalId,
                     filename = cleanFilename,
                     originalFilename = originalFilename,
                     name = title,
@@ -327,11 +361,18 @@ object NuxModManager {
 
                 true
             } else {
-                if (file.exists()) {
+                val deleted = if (file.exists()) {
                     if (file.isDirectory) file.deleteRecursively() else file.delete()
                 } else {
                     false
                 }
+                if (deleted) {
+                    val metaMap = loadInstalledModsMetadata(gameDir)
+                    metaMap.remove(item.originalFilename.lowercase())
+                    metaMap.remove(item.filename.lowercase())
+                    saveInstalledModsMetadata(gameDir, metaMap)
+                }
+                deleted
             }
         } catch (_: Exception) {
             false
@@ -663,6 +704,13 @@ object NuxModManager {
                     downloadFile(primaryFile.url, destFile)
                     installedFilenames.add(filename.lowercase())
                     downloadedFiles.add(filename)
+
+                    try {
+                        val gameDir = InstanceManager.getInstanceGameDir(context, instance)
+                        val metaMap = loadInstalledModsMetadata(gameDir)
+                        metaMap[filename.lowercase()] = NuxInstalledModMeta(filename, targetVer.projectId, targetVer.id)
+                        saveInstalledModsMetadata(gameDir, metaMap)
+                    } catch (_: Exception) {}
 
                     if (itemType == "modpacks" && (filename.endsWith(".mrpack", ignoreCase = true) || filename.endsWith(".zip", ignoreCase = true))) {
                         onProgress("Mengekstrak dan menyiapkan modpack...")

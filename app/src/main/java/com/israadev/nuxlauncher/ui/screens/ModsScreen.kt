@@ -106,6 +106,31 @@ private fun getFileNameFromUri(context: android.content.Context, uri: Uri): Stri
     return name ?: "unknown_file"
 }
 
+private fun isModInstalled(inst: InstalledModItem, hit: ModrinthSearchHit): Boolean {
+    // 1. Exact Modrinth Project ID (dari metadata manifest atau id)
+    if (inst.id.isNotBlank() && inst.id.equals(hit.projectId, ignoreCase = true)) {
+        return true
+    }
+    // 2. Exact Title Match
+    if (inst.name.equals(hit.title, ignoreCase = true)) {
+        return true
+    }
+    // 3. Exact slug match pada nama file mod (bukan substring ceroboh yang mencocokkan dependensi seperti sodium vs sodium-extra)
+    val slug = hit.slug?.trim()?.lowercase() ?: ""
+    if (slug.isNotBlank()) {
+        val clean = inst.filename.removeSuffix(".disabled").removeSuffix(".jar").lowercase()
+        val namePrefix = clean.takeWhile { !it.isDigit() }.trimEnd('-', '_', '+')
+        val base = namePrefix
+            .removeSuffix("-fabric").removeSuffix("-forge").removeSuffix("-neoforge").removeSuffix("-quilt")
+            .removeSuffix("_fabric").removeSuffix("_forge").removeSuffix("_neoforge").removeSuffix("_quilt")
+            .trimEnd('-', '_')
+        if (base.equals(slug, ignoreCase = true)) {
+            return true
+        }
+    }
+    return false
+}
+
 data class ModCategoryItem(val id: String, val label: String)
 
 private val CATEGORIES_MAP = mapOf(
@@ -1229,12 +1254,7 @@ fun ModsScreen(
                     contentPadding = PaddingValues(bottom = 20.dp)
                 ) {
                     items(searchHits, key = { it.projectId }) { hit ->
-                        val isInstalled = installedItems.any { inst ->
-                            val titleMatches = inst.name.equals(hit.title, ignoreCase = true)
-                            val slugMatches = !hit.slug.isNullOrBlank() && inst.filename.contains(hit.slug, ignoreCase = true)
-                            val idMatches = inst.id.equals(hit.projectId, ignoreCase = true)
-                            titleMatches || slugMatches || idMatches
-                        }
+                        val isInstalled = installedItems.any { isModInstalled(it, hit) }
 
                         val isDownloading = downloadingProjectIds.containsKey(hit.projectId)
                         val downloadStatus = downloadingProjectIds[hit.projectId] ?: ""
@@ -1705,12 +1725,7 @@ fun ModsScreen(
 
     // --- 5. MODRINTH PROJECT DETAIL MODAL ---
     detailModalHit?.let { hit ->
-        val isHitInstalled = installedItems.any { inst ->
-            val titleMatches = inst.name.equals(hit.title, ignoreCase = true)
-            val slugMatches = !hit.slug.isNullOrBlank() && inst.filename.contains(hit.slug, ignoreCase = true)
-            val idMatches = inst.id.equals(hit.projectId, ignoreCase = true)
-            titleMatches || slugMatches || idMatches
-        }
+        val isHitInstalled = installedItems.any { isModInstalled(it, hit) }
 
         NuxDialog(
             onDismissRequest = {

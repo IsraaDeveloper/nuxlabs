@@ -42,21 +42,17 @@ object NuxRendererRegistry {
         badge = "FCL Compatibility Layer",
         summary = "Pustaka grafis OpenGL 4.0 MobileGlues untuk Minecraft 1.17 – 1.21.1. Kompatibilitas tinggi dengan berbagai GPU mobile termasuk Mali.",
         compatibility = "Minecraft 1.17 – 1.21.1",
-        rendererId = "opengles3",
+        rendererId = "mobileglues",
         libraryName = "libmobileglues.so",
         eglName = "libmobileglues.so",
         isMaliRecommended = true,
         minMCVersion = "1.17",
         maxMCVersion = "1.21.1",
         envVariables = mapOf(
-            "LIBGL_ES" to "3",
             "POJAVEXEC_EGL" to "libmobileglues.so",
             "LIBGL_EGL" to "libmobileglues.so",
             "MG_COUNT_LAUNCH" to "1",
-            "SDL_OPENGL_FORCE_SRGB_FRAMEBUFFER" to "0",
-            "allow_higher_compat_version" to "true",
-            "allow_glsl_extension_directive_midshader" to "true",
-            "force_glsl_extensions_warn" to "true"
+            "SDL_OPENGL_FORCE_SRGB_FRAMEBUFFER" to "0"
         )
     )
 

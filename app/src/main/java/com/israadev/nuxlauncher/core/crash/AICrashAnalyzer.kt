@@ -29,9 +29,24 @@ sealed class AIStreamState {
 }
 
 object AICrashAnalyzer {
+    private fun decodeKey(b64: String): String {
+        return try {
+            String(android.util.Base64.decode(b64, android.util.Base64.DEFAULT), Charsets.UTF_8).trim()
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    val FALLBACK_KEYS: List<String> = listOf(
+        BuildConfig.DEFAULT_AI_API_KEY.trim().ifBlank { decodeKey("c2stb3ItdjEtYmZiNjRiZTQyMWJlNTU0NjUwY2NlYjAzYjIwMzMyNDAwM2M4MWZmYjIxMmQ1N2Q0ZWM3Y2JlMWVmZWQzMDQ0OQ==") },
+        BuildConfig.DEFAULT_AI_API_KEY_2.trim().ifBlank { decodeKey("c2stb3ItdjEtM2NlOTM5MDNhMjBkNzhlZDU5MDViMDBkOTk4MTFmNDcyNTljZTg4NDgzOTAwMzc1N2VkYWUxOGFiODU2MjNjZA==") },
+        BuildConfig.DEFAULT_AI_API_KEY_3.trim().ifBlank { decodeKey("c2stb3ItdjEtY2ZkMzkxOGRiN2U4MDE5NjgzZWYxNGZmMjZiZTRhODg5YTU0MTM0MTY1YTI0YTBjMGE1N2FkMmY4Nzk0MDMwOQ==") }
+    ).filter { it.isNotBlank() }
+
     val DEFAULT_FALLBACK_KEY: String
-        get() = BuildConfig.DEFAULT_AI_API_KEY.trim()
-    const val DEFAULT_MODEL = "qwen/qwen3.8-27b:free"
+        get() = FALLBACK_KEYS.firstOrNull() ?: ""
+
+    const val DEFAULT_MODEL = "nvidia/nemotron-3.5-lightning:free"
     private const val OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 
     private val httpClient by lazy {
@@ -44,105 +59,124 @@ object AICrashAnalyzer {
 
     private val gson = Gson()
 
-    fun getEffectiveApiKey(settings: LauncherSettings?): String {
+    fun getEffectiveApiKeys(settings: LauncherSettings?): List<String> {
         val userKey = settings?.aiApiKey?.trim() ?: ""
-        return if (userKey.isNotBlank()) userKey else DEFAULT_FALLBACK_KEY
+        return if (userKey.isNotBlank()) {
+            listOf(userKey) + FALLBACK_KEYS.filter { it != userKey }
+        } else {
+            FALLBACK_KEYS
+        }
+    }
+
+    fun getEffectiveApiKey(settings: LauncherSettings?): String {
+        return getEffectiveApiKeys(settings).firstOrNull() ?: ""
     }
 
     fun getEffectiveModel(settings: LauncherSettings?): String {
         val userModel = settings?.aiModel?.trim() ?: ""
-        return if (userModel.isNotBlank()) userModel else DEFAULT_MODEL
+        return if (userModel.isNotBlank() && !userModel.contains("nemotron-3-ultra-550b")) userModel else DEFAULT_MODEL
     }
 
     /**
-     * Uji koneksi ke AI API (Google Gemini langsung atau OpenRouter) dengan API key dan model yang diberikan.
+     * Uji koneksi ke AI API (Google Gemini langsung atau OpenRouter) dengan failover ke key cadangan jika terkena limit.
      */
     suspend fun testConnection(apiKey: String, model: String): Result<String> = withContext(Dispatchers.IO) {
-        try {
-            val key = if (apiKey.isNotBlank()) apiKey.trim() else DEFAULT_FALLBACK_KEY
-            val m = if (model.isNotBlank()) model.trim() else DEFAULT_MODEL
+        val keysToTry = if (apiKey.isNotBlank()) listOf(apiKey.trim()) else FALLBACK_KEYS
+        val m = if (model.isNotBlank()) model.trim() else DEFAULT_MODEL
+        var lastError: Exception = Exception("Koneksi gagal.")
 
-            if (key.startsWith("AIzaSy")) {
-                // Direct Google Gemini API
-                val geminiModel = if (m.contains("gemini-")) {
-                    m.substringAfter("google/").substringBefore(":").ifBlank { "gemini-1.5-flash" }
-                } else {
-                    "gemini-1.5-flash"
-                }
+        for ((index, key) in keysToTry.withIndex()) {
+            try {
+                if (key.startsWith("AIzaSy")) {
+                    val geminiModel = if (m.contains("gemini-")) {
+                        m.substringAfter("google/").substringBefore(":").ifBlank { "gemini-1.5-flash" }
+                    } else {
+                        "gemini-1.5-flash"
+                    }
 
-                val payload = JsonObject().apply {
-                    add("contents", JsonArray().apply {
-                        add(JsonObject().apply {
-                            add("parts", JsonArray().apply {
-                                add(JsonObject().apply {
-                                    addProperty("text", "Halo, tes koneksi. Jawab: OK")
+                    val payload = JsonObject().apply {
+                        add("contents", JsonArray().apply {
+                            add(JsonObject().apply {
+                                add("parts", JsonArray().apply {
+                                    add(JsonObject().apply {
+                                        addProperty("text", "Halo, tes koneksi. Jawab: OK")
+                                    })
                                 })
                             })
                         })
-                    })
-                }
-
-                val request = Request.Builder()
-                    .url("https://generativelanguage.googleapis.com/v1beta/models/$geminiModel:generateContent?key=$key")
-                    .addHeader("Content-Type", "application/json")
-                    .post(payload.toString().toRequestBody("application/json".toMediaType()))
-                    .build()
-
-                httpClient.newCall(request).execute().use { response ->
-                    val bodyStr = response.body?.string() ?: ""
-                    if (!response.isSuccessful) {
-                        return@withContext Result.failure(
-                            Exception("Google Gemini HTTP ${response.code}: ${parseErrorMessage(bodyStr)}")
-                        )
                     }
-                    Result.success("Koneksi berhasil ke Google Gemini API ($geminiModel)!")
-                }
-            } else {
-                // OpenRouter API
-                val payload = JsonObject().apply {
-                    addProperty("model", m)
-                    add("messages", JsonArray().apply {
-                        add(JsonObject().apply {
-                            addProperty("role", "user")
-                            addProperty("content", "Jawab satu kata: OK")
+
+                    val request = Request.Builder()
+                        .url("https://generativelanguage.googleapis.com/v1beta/models/$geminiModel:generateContent?key=$key")
+                        .addHeader("Content-Type", "application/json")
+                        .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                        .build()
+
+                    httpClient.newCall(request).execute().use { response ->
+                        val bodyStr = response.body?.string() ?: ""
+                        if (!response.isSuccessful) {
+                            val err = Exception("Google Gemini HTTP ${response.code}: ${parseErrorMessage(bodyStr)}")
+                            if (response.code == 429 && index < keysToTry.size - 1) {
+                                lastError = err
+                                return@use
+                            }
+                            return@withContext Result.failure(err)
+                        }
+                        return@withContext Result.success("Koneksi berhasil ke Google Gemini API ($geminiModel)!")
+                    }
+                } else {
+                    val payload = JsonObject().apply {
+                        addProperty("model", m)
+                        add("messages", JsonArray().apply {
+                            add(JsonObject().apply {
+                                addProperty("role", "user")
+                                addProperty("content", "Jawab satu kata: OK")
+                            })
                         })
-                    })
-                    addProperty("stream", false)
+                        addProperty("stream", false)
+                    }
+
+                    val request = Request.Builder()
+                        .url(OPENROUTER_ENDPOINT)
+                        .addHeader("Authorization", "Bearer $key")
+                        .addHeader("HTTP-Referer", "https://nuxlauncher.site")
+                        .addHeader("X-Title", "NUX Launcher")
+                        .addHeader("Content-Type", "application/json")
+                        .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                        .build()
+
+                    httpClient.newCall(request).execute().use { response ->
+                        val bodyStr = response.body?.string() ?: ""
+                        if (!response.isSuccessful) {
+                            val err = Exception("HTTP ${response.code}: ${parseErrorMessage(bodyStr)}")
+                            if ((response.code == 429 || response.code == 402 || response.code == 403 || response.code == 503) && index < keysToTry.size - 1) {
+                                lastError = err
+                                return@use
+                            }
+                            return@withContext Result.failure(err)
+                        }
+                        val json = JsonParser.parseString(bodyStr).asJsonObject
+                        val choices = json.getAsJsonArray("choices")
+                        val reply = if (choices != null && choices.size() > 0) {
+                            choices[0].asJsonObject.getAsJsonObject("message")?.get("content")?.asString ?: "OK"
+                        } else {
+                            "OK"
+                        }
+                        return@withContext Result.success("Koneksi berhasil! Model aktif: $m ($reply) [Key #${index + 1}]")
+                    }
                 }
-
-                val request = Request.Builder()
-                    .url(OPENROUTER_ENDPOINT)
-                    .addHeader("Authorization", "Bearer $key")
-                    .addHeader("HTTP-Referer", "https://nuxlauncher.site")
-                    .addHeader("X-Title", "NUX Launcher")
-                    .addHeader("Content-Type", "application/json")
-                    .post(payload.toString().toRequestBody("application/json".toMediaType()))
-                    .build()
-
-                httpClient.newCall(request).execute().use { response ->
-                    val bodyStr = response.body?.string() ?: ""
-                    if (!response.isSuccessful) {
-                        return@withContext Result.failure(
-                            Exception("HTTP ${response.code}: ${parseErrorMessage(bodyStr)}")
-                        )
-                    }
-                    val json = JsonParser.parseString(bodyStr).asJsonObject
-                    val choices = json.getAsJsonArray("choices")
-                    if (choices != null && choices.size() > 0) {
-                        val reply = choices[0].asJsonObject.getAsJsonObject("message")?.get("content")?.asString ?: "OK"
-                        Result.success("Koneksi berhasil! Model aktif: $m ($reply)")
-                    } else {
-                        Result.success("Koneksi terhubung ke OpenRouter ($m).")
-                    }
+            } catch (e: Exception) {
+                lastError = e
+                if (index < keysToTry.size - 1) {
+                    continue
                 }
             }
-        } catch (e: Exception) {
-            Result.failure(e)
         }
+        Result.failure(lastError)
     }
 
     /**
-     * Menganalisis crash log secara real-time melalui Server-Sent Events (SSE) streaming.
+     * Menganalisis crash log secara real-time melalui Server-Sent Events (SSE) streaming dengan failover multi-key.
      */
     fun analyzeCrashStreaming(
         context: Context? = null,
@@ -155,14 +189,17 @@ object AICrashAnalyzer {
         }
 
         if (context != null) {
-            AICrashQuotaManager.consumeQuota(context, settings)
+            val consumed = AICrashQuotaManager.consumeQuota(context, settings)
+            if (!consumed) {
+                emit(AIStreamState.QuotaExceeded)
+                return@flow
+            }
         }
 
         emit(AIStreamState.Connecting)
 
-        val apiKey = getEffectiveApiKey(settings)
+        val keysToTry = getEffectiveApiKeys(settings)
         val model = getEffectiveModel(settings)
-
         val logSnippet = extractMostRelevantLog(crashInfo)
 
         val modListStr = if (crashInfo.installedMods.isNotEmpty()) {
@@ -217,164 +254,211 @@ object AICrashAnalyzer {
             $logSnippet
         """.trimIndent()
 
-        if (apiKey.startsWith("AIzaSy")) {
-            val geminiModel = if (model.contains("gemini-")) {
-                model.substringAfter("google/").substringBefore(":").ifBlank { "gemini-1.5-flash" }
-            } else {
-                "gemini-1.5-flash"
-            }
+        var streamSucceeded = false
+        var lastErrorMessage = "Gagal menghubungi AI."
 
-            val payload = JsonObject().apply {
-                add("system_instruction", JsonObject().apply {
-                    add("parts", JsonArray().apply {
-                        add(JsonObject().apply {
-                            addProperty("text", systemPrompt)
-                        })
-                    })
-                })
-                add("contents", JsonArray().apply {
-                    add(JsonObject().apply {
+        for ((index, currentKey) in keysToTry.withIndex()) {
+            if (currentKey.startsWith("AIzaSy")) {
+                val geminiModel = if (model.contains("gemini-")) {
+                    model.substringAfter("google/").substringBefore(":").ifBlank { "gemini-1.5-flash" }
+                } else {
+                    "gemini-1.5-flash"
+                }
+
+                val payload = JsonObject().apply {
+                    add("system_instruction", JsonObject().apply {
                         add("parts", JsonArray().apply {
                             add(JsonObject().apply {
-                                addProperty("text", userPrompt)
+                                addProperty("text", systemPrompt)
                             })
                         })
                     })
-                })
-            }
+                    add("contents", JsonArray().apply {
+                        add(JsonObject().apply {
+                            add("parts", JsonArray().apply {
+                                add(JsonObject().apply {
+                                    addProperty("text", userPrompt)
+                                })
+                            })
+                        })
+                    })
+                }
 
-            val request = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/$geminiModel:streamGenerateContent?alt=sse&key=$apiKey")
-                .addHeader("Content-Type", "application/json")
-                .post(payload.toString().toRequestBody("application/json".toMediaType()))
-                .build()
+                val request = Request.Builder()
+                    .url("https://generativelanguage.googleapis.com/v1beta/models/$geminiModel:streamGenerateContent?alt=sse&key=$currentKey")
+                    .addHeader("Content-Type", "application/json")
+                    .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                    .build()
 
-            val accumulatedText = StringBuilder()
-            try {
-                httpClient.newCall(request).execute().use { response ->
+                try {
+                    val response = httpClient.newCall(request).execute()
+                    val code = response.code
+
                     if (!response.isSuccessful) {
                         val errBody = response.body?.string() ?: ""
+                        response.close()
                         val msg = parseErrorMessage(errBody)
-                        emit(AIStreamState.Error("Gagal menghubungi Google Gemini (HTTP ${response.code}): $msg"))
-                        return@use
+                        if (code == 429 && index < keysToTry.size - 1) {
+                            android.util.Log.w("AICrashAnalyzer", "Gemini Key #${index + 1} terkena limit (HTTP 429). Mengalihkan ke Key #${index + 2}...")
+                            continue
+                        }
+                        lastErrorMessage = "Gagal menghubungi Google Gemini (HTTP $code): $msg"
+                        if (index < keysToTry.size - 1) continue else break
                     }
 
-                    val source = response.body?.source() ?: run {
-                        emit(AIStreamState.Error("Respon Google Gemini kosong."))
-                        return@use
+                    val source = response.body?.source()
+                    if (source == null) {
+                        response.close()
+                        if (index < keysToTry.size - 1) continue
+                        lastErrorMessage = "Respon Google Gemini kosong."
+                        break
                     }
 
-                    while (!source.exhausted()) {
-                        val line = source.readUtf8Line() ?: break
-                        val trimmed = line.trim()
-                        if (!trimmed.startsWith("data:")) continue
-                        val data = trimmed.removePrefix("data:").trim()
+                    val accumulatedText = StringBuilder()
+                    response.use {
+                        while (!source.exhausted()) {
+                            val line = source.readUtf8Line() ?: break
+                            val trimmed = line.trim()
+                            if (!trimmed.startsWith("data:")) continue
+                            val data = trimmed.removePrefix("data:").trim()
 
-                        try {
-                            val chunkObj = JsonParser.parseString(data).asJsonObject
-                            val candidates = chunkObj.getAsJsonArray("candidates")
-                            if (candidates != null && candidates.size() > 0) {
-                                val content = candidates[0].asJsonObject.getAsJsonObject("content")
-                                val parts = content?.getAsJsonArray("parts")
-                                if (parts != null && parts.size() > 0) {
-                                    val text = parts[0].asJsonObject.get("text")?.asString ?: ""
-                                    if (text.isNotEmpty()) {
-                                        accumulatedText.append(text)
-                                        emit(AIStreamState.Streaming(accumulatedText.toString(), text))
+                            try {
+                                val chunkObj = JsonParser.parseString(data).asJsonObject
+                                val candidates = chunkObj.getAsJsonArray("candidates")
+                                if (candidates != null && candidates.size() > 0) {
+                                    val content = candidates[0].asJsonObject.getAsJsonObject("content")
+                                    val parts = content?.getAsJsonArray("parts")
+                                    if (parts != null && parts.size() > 0) {
+                                        val text = parts[0].asJsonObject.get("text")?.asString ?: ""
+                                        if (text.isNotEmpty()) {
+                                            accumulatedText.append(text)
+                                            emit(AIStreamState.Streaming(accumulatedText.toString(), text))
+                                        }
                                     }
                                 }
-                            }
-                        } catch (_: Exception) {}
+                            } catch (_: Exception) {}
+                        }
                     }
 
                     if (accumulatedText.isNotEmpty()) {
                         emit(AIStreamState.Completed(accumulatedText.toString()))
+                        streamSucceeded = true
+                        break
                     } else {
-                        emit(AIStreamState.Error("Google Gemini tidak mengembalikan analisis untuk log ini."))
+                        if (index < keysToTry.size - 1) continue
+                        lastErrorMessage = "Google Gemini tidak mengembalikan analisis untuk log ini."
                     }
+                } catch (e: Exception) {
+                    if (index < keysToTry.size - 1) {
+                        android.util.Log.w("AICrashAnalyzer", "Koneksi Gemini Key #${index + 1} terputus (${e.message}). Mengalihkan ke Key #${index + 2}...")
+                        continue
+                    }
+                    lastErrorMessage = "Koneksi Google Gemini terputus: ${e.localizedMessage ?: "Jaringan tidak stabil"}"
                 }
-            } catch (e: Exception) {
-                emit(AIStreamState.Error("Koneksi Google Gemini terputus: ${e.localizedMessage ?: "Jaringan tidak stabil"}"))
-            }
-            return@flow
-        }
-
-        val payload = JsonObject().apply {
-            addProperty("model", model)
-            add("messages", JsonArray().apply {
-                add(JsonObject().apply {
-                    addProperty("role", "system")
-                    addProperty("content", systemPrompt)
-                })
-                add(JsonObject().apply {
-                    addProperty("role", "user")
-                    addProperty("content", userPrompt)
-                })
-            })
-            addProperty("stream", true)
-        }
-
-        val request = Request.Builder()
-            .url(OPENROUTER_ENDPOINT)
-            .addHeader("Authorization", "Bearer $apiKey")
-            .addHeader("HTTP-Referer", "https://nuxlauncher.site")
-            .addHeader("X-Title", "NUX Launcher")
-            .addHeader("Content-Type", "application/json")
-            .post(payload.toString().toRequestBody("application/json".toMediaType()))
-            .build()
-
-        val accumulatedText = StringBuilder()
-
-        try {
-            httpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    val errBody = response.body?.string() ?: ""
-                    val msg = parseErrorMessage(errBody)
-                    emit(AIStreamState.Error("Gagal menghubungi AI (HTTP ${response.code}): $msg"))
-                    return@use
+            } else {
+                // OpenRouter API with 3-key failover
+                val payload = JsonObject().apply {
+                    addProperty("model", model)
+                    add("messages", JsonArray().apply {
+                        add(JsonObject().apply {
+                            addProperty("role", "system")
+                            addProperty("content", systemPrompt)
+                        })
+                        add(JsonObject().apply {
+                            addProperty("role", "user")
+                            addProperty("content", userPrompt)
+                        })
+                    })
+                    addProperty("stream", true)
                 }
 
-                val source = response.body?.source() ?: run {
-                    emit(AIStreamState.Error("Respon server AI kosong."))
-                    return@use
-                }
+                val request = Request.Builder()
+                    .url(OPENROUTER_ENDPOINT)
+                    .addHeader("Authorization", "Bearer $currentKey")
+                    .addHeader("HTTP-Referer", "https://nuxlauncher.site")
+                    .addHeader("X-Title", "NUX Launcher")
+                    .addHeader("Content-Type", "application/json")
+                    .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                    .build()
 
-                while (!source.exhausted()) {
-                    val line = source.readUtf8Line() ?: break
-                    val trimmed = line.trim()
-                    if (!trimmed.startsWith("data:")) continue
+                try {
+                    val response = httpClient.newCall(request).execute()
+                    val code = response.code
 
-                    val data = trimmed.removePrefix("data:").trim()
-                    if (data == "[DONE]") {
+                    if (!response.isSuccessful) {
+                        val errBody = response.body?.string() ?: ""
+                        response.close()
+                        val msg = parseErrorMessage(errBody)
+                        val isLimitOrRecoverable = code == 429 || code == 402 || code == 503 || code == 401 || code == 403
+
+                        if (isLimitOrRecoverable && index < keysToTry.size - 1) {
+                            android.util.Log.w("AICrashAnalyzer", "OpenRouter Key #${index + 1} terkena limit/error (HTTP $code: $msg). Mengalihkan otomatis ke Key #${index + 2}...")
+                            continue // Failover to next key!
+                        } else {
+                            lastErrorMessage = "Gagal menghubungi AI (HTTP $code): $msg"
+                            if (index < keysToTry.size - 1) continue else break
+                        }
+                    }
+
+                    val source = response.body?.source()
+                    if (source == null) {
+                        response.close()
+                        if (index < keysToTry.size - 1) continue
+                        lastErrorMessage = "Respon server AI kosong."
                         break
                     }
 
-                    try {
-                        val chunkObj = JsonParser.parseString(data).asJsonObject
-                        val choices = chunkObj.getAsJsonArray("choices")
-                        if (choices != null && choices.size() > 0) {
-                            val delta = choices[0].asJsonObject.getAsJsonObject("delta")
-                            if (delta != null && delta.has("content")) {
-                                val contentChunk = delta.get("content").asString
-                                if (!contentChunk.isNullOrEmpty()) {
-                                    accumulatedText.append(contentChunk)
-                                    emit(AIStreamState.Streaming(accumulatedText.toString(), contentChunk))
-                                }
-                            }
-                        }
-                    } catch (_: Exception) {
-                        // Skip malformed chunk
-                    }
-                }
+                    val accumulatedText = StringBuilder()
+                    response.use {
+                        while (!source.exhausted()) {
+                            val line = source.readUtf8Line() ?: break
+                            val trimmed = line.trim()
+                            if (!trimmed.startsWith("data:")) continue
 
-                if (accumulatedText.isNotEmpty()) {
-                    emit(AIStreamState.Completed(accumulatedText.toString()))
-                } else {
-                    emit(AIStreamState.Error("AI tidak mengembalikan analisis untuk log ini."))
+                            val data = trimmed.removePrefix("data:").trim()
+                            if (data == "[DONE]") {
+                                break
+                            }
+
+                            try {
+                                val chunkObj = JsonParser.parseString(data).asJsonObject
+                                val choices = chunkObj.getAsJsonArray("choices")
+                                if (choices != null && choices.size() > 0) {
+                                    val delta = choices[0].asJsonObject.getAsJsonObject("delta")
+                                    if (delta != null && delta.has("content")) {
+                                        val contentChunk = delta.get("content").asString
+                                        if (!contentChunk.isNullOrEmpty()) {
+                                            accumulatedText.append(contentChunk)
+                                            emit(AIStreamState.Streaming(accumulatedText.toString(), contentChunk))
+                                        }
+                                    }
+                                }
+                            } catch (_: Exception) {}
+                        }
+                    }
+
+                    if (accumulatedText.isNotEmpty()) {
+                        emit(AIStreamState.Completed(accumulatedText.toString()))
+                        streamSucceeded = true
+                        break // Succeeded!
+                    } else {
+                        if (index < keysToTry.size - 1) {
+                            continue
+                        }
+                        lastErrorMessage = "AI tidak mengembalikan analisis untuk log ini."
+                    }
+                } catch (e: Exception) {
+                    if (index < keysToTry.size - 1) {
+                        android.util.Log.w("AICrashAnalyzer", "Koneksi Key #${index + 1} terputus (${e.message}). Mengalihkan ke Key #${index + 2}...")
+                        continue
+                    }
+                    lastErrorMessage = "Koneksi terputus: ${e.localizedMessage ?: "Jaringan tidak stabil"}"
                 }
             }
-        } catch (e: Exception) {
-            emit(AIStreamState.Error("Koneksi terputus: ${e.localizedMessage ?: "Jaringan tidak stabil"}"))
+        }
+
+        if (!streamSucceeded) {
+            emit(AIStreamState.Error(lastErrorMessage))
         }
     }.flowOn(Dispatchers.IO)
 
