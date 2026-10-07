@@ -179,6 +179,34 @@ object AuthService {
         Result.failure(lastError ?: Exception("Gagal menghubungi server autentikasi"))
     }
 
+    /**
+     * Panggilan synchronous / blocking cepat (dengan timeout pendek) untuk memastikan
+     * presence status (seperti offline / online) sempat terkirim sebelum process di-kill.
+     */
+    fun postApiSync(endpoint: String, jsonBody: String, timeoutSec: Long = 2): Result<String> {
+        if (CANDIDATE_BASES.isEmpty()) return Result.failure(Exception("No server base"))
+        val quickClient = client.newBuilder()
+            .connectTimeout(timeoutSec, TimeUnit.SECONDS)
+            .readTimeout(timeoutSec, TimeUnit.SECONDS)
+            .writeTimeout(timeoutSec, TimeUnit.SECONDS)
+            .build()
+        for (base in CANDIDATE_BASES) {
+            try {
+                val url = "$base$endpoint"
+                val body = jsonBody.toRequestBody(jsonMediaType)
+                val reqBuilder = Request.Builder().url(url).post(body)
+                NuxConfig.applyAuthHeaders(reqBuilder, includeBearerIfEmpty = true)
+                val response = quickClient.newCall(reqBuilder.build()).execute()
+                val bodyStr = response.body.string()
+                response.close()
+                return Result.success(bodyStr)
+            } catch (_: Exception) {
+                // Coba basis berikutnya
+            }
+        }
+        return Result.failure(Exception("postApiSync failed"))
+    }
+
     suspend fun getApi(endpoint: String, bearerToken: String? = null): Result<String> = withContext(Dispatchers.IO) {
         if (CANDIDATE_BASES.isEmpty()) {
             return@withContext Result.failure(Exception("Server autentikasi belum dikonfigurasi. Pastikan 'nux.server.url' diisi di local.properties."))

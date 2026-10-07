@@ -88,7 +88,20 @@ object NuxSocialManager {
     private data class CachedProfile(val profile: NuxUserProfile, val timestamp: Long)
     private val profileCache = ConcurrentHashMap<String, CachedProfile>()
 
-    private fun getCurrentUser(): AuthUser? = AccountManager.launcherUser.value
+    fun getCurrentUser(): AuthUser? = AccountManager.launcherUser.value
+
+    fun notifyGameExitSync() {
+        isInGame = false
+        val user = getCurrentUser() ?: return
+        try {
+            val payload = org.json.JSONObject().apply {
+                put("uid", user.uid)
+                put("status", "online")
+                put("platform", "android")
+            }
+            AuthService.postApiSync("/api/presence", payload.toString(), timeoutSec = 2)
+        } catch (_: Throwable) {}
+    }
 
     private var cachedToken: String? = null
     private var tokenExpiry: Long = 0L
@@ -188,12 +201,17 @@ object NuxSocialManager {
                     updateMyPresence("in_game")
                 } catch (_: Exception) {}
             }
+        } else {
+            scope.launch {
+                try {
+                    updateMyPresence("online")
+                } catch (_: Exception) {}
+            }
         }
     }
 
     fun onAppForeground() {
         val user = getCurrentUser() ?: return
-        if (!user.isActivated) return
         startPresenceHeartbeat()
         scope.launch {
             try {

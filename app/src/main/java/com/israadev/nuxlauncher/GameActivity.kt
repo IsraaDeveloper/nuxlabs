@@ -204,9 +204,16 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
         terminateGameProcess()
     }
 
+    private fun notifyPresenceGameExit() {
+        try {
+            com.israadev.nuxlauncher.core.social.NuxSocialManager.notifyGameExitSync()
+        } catch (_: Throwable) {}
+    }
+
     private fun terminateGameProcess() {
         try {
             isManualExit = true
+            notifyPresenceGameExit()
             CrashManager.onGameSessionEnded(this)
             ZLBridge.releaseBridgeWindow()
             com.israadev.nuxlauncher.core.skin.OfflineSkinServerManager.stopServer()
@@ -220,6 +227,7 @@ class GameActivity : ComponentActivity(), SurfaceHolder.Callback {
         super.onDestroy()
         try {
             isManualExit = true
+            notifyPresenceGameExit()
             CrashManager.onGameSessionEnded(this)
             ZLBridge.releaseBridgeWindow()
             com.israadev.nuxlauncher.core.skin.OfflineSkinServerManager.stopServer()
