@@ -246,51 +246,33 @@ fun NuxRendererConfigDialog(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Action Buttons (Batal & Simpan)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    // Action Button (Simpan)
+                    NuxButton(
+                        onClick = {
+                            val updated = config.copy(
+                                enableANGLE = enableAngle,
+                                enableNoError = enableNoError,
+                                angleDepthClearFixMode = angleDepthFix,
+                                enableExtComputeShader = enableComputeDsa,
+                                enableExtDirectStateAccess = enableComputeDsa,
+                                fsr1Setting = if (enableFsr) 1 else 0
+                            )
+                            val success = MobileGluesConfigManager.saveConfig(updated)
+                            if (success) {
+                                Toast.makeText(context, "Konfigurasi MobileGlues berhasil disimpan!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Gagal menulis file /sdcard/MG/config.json", Toast.LENGTH_LONG).show()
+                            }
+                            onDismiss()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp),
+                        backgroundColor = NuxColors.ForestGreen,
+                        contentColor = Color.White,
+                        cornerRadius = 6.dp
                     ) {
-                        NuxButton(
-                            onClick = onDismiss,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(36.dp),
-                            backgroundColor = NuxColors.SurfaceElevated,
-                            contentColor = Color.White,
-                            borderColor = NuxColors.CardBorder,
-                            cornerRadius = 6.dp
-                        ) {
-                            Text("TUTUP", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
-
-                        NuxButton(
-                            onClick = {
-                                val updated = config.copy(
-                                    enableANGLE = enableAngle,
-                                    enableNoError = enableNoError,
-                                    angleDepthClearFixMode = angleDepthFix,
-                                    enableExtComputeShader = enableComputeDsa,
-                                    enableExtDirectStateAccess = enableComputeDsa,
-                                    fsr1Setting = if (enableFsr) 1 else 0
-                                )
-                                val success = MobileGluesConfigManager.saveConfig(updated)
-                                if (success) {
-                                    Toast.makeText(context, "Konfigurasi MobileGlues berhasil disimpan!", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    Toast.makeText(context, "Gagal menulis file /sdcard/MG/config.json", Toast.LENGTH_LONG).show()
-                                }
-                                onDismiss()
-                            },
-                            modifier = Modifier
-                                .weight(1.5f)
-                                .height(36.dp),
-                            backgroundColor = NuxColors.ForestGreen,
-                            contentColor = Color.White,
-                            cornerRadius = 6.dp
-                        ) {
-                            Text("SIMPAN KONFIGURASI", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                        }
+                        Text("SIMPAN KONFIGURASI", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                     }
                 }
             }

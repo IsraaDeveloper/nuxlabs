@@ -13,7 +13,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -39,13 +41,13 @@ import com.israadev.nuxlauncher.ui.theme.NuxColors
 import com.israadev.nuxlauncher.ui.theme.NuxSizes
 import kotlinx.coroutines.launch
 
-private data class AddonTypeOption(val id: String, val label: String, val icon: String)
+private data class AddonTypeOption(val id: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
 private val ADDON_TYPES = listOf(
-    AddonTypeOption("mods", "Mod (.jar)", "🧩"),
-    AddonTypeOption("modpacks", "Modpack (.mrpack / .zip)", "📦"),
-    AddonTypeOption("resourcepacks", "Resource Pack (.zip)", "🎨"),
-    AddonTypeOption("shaderpacks", "Shaderpack (.zip)", "✨")
+    AddonTypeOption("mods", "Mod (.jar)", Icons.Outlined.Extension),
+    AddonTypeOption("modpacks", "Modpack (.mrpack / .zip)", Icons.Outlined.Archive),
+    AddonTypeOption("resourcepacks", "Resource Pack (.zip)", Icons.Outlined.Palette),
+    AddonTypeOption("shaderpacks", "Shaderpack (.zip)", Icons.Outlined.WbSunny)
 )
 
 @Composable
@@ -128,7 +130,12 @@ fun NuxAddonImportDialog(
                                     .border(1.dp, NuxColors.ForestGreen.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = "📥", fontSize = 16.sp)
+                                Icon(
+                                    imageVector = Icons.Outlined.Download,
+                                    contentDescription = null,
+                                    tint = NuxColors.MintGreen,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
@@ -200,13 +207,18 @@ fun NuxAddonImportDialog(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     val icon = when (selectedType) {
-                                        "mods" -> "🧩"
-                                        "modpacks" -> "📦"
-                                        "resourcepacks" -> "🎨"
-                                        "shaderpacks" -> "✨"
-                                        else -> "📄"
+                                        "mods" -> Icons.Outlined.Extension
+                                        "modpacks" -> Icons.Outlined.Archive
+                                        "resourcepacks" -> Icons.Outlined.Palette
+                                        "shaderpacks" -> Icons.Outlined.WbSunny
+                                        else -> Icons.Outlined.Description
                                     }
-                                    Text(text = icon, fontSize = 20.sp)
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        tint = NuxColors.MintGreen,
+                                        modifier = Modifier.size(20.dp)
+                                    )
                                 }
 
                                 Spacer(modifier = Modifier.width(10.dp))
@@ -267,7 +279,12 @@ fun NuxAddonImportDialog(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(text = option.icon, fontSize = 12.sp)
+                                        Icon(
+                                            imageVector = option.icon,
+                                            contentDescription = null,
+                                            tint = if (isSelected) NuxColors.MintGreen else Color(0xFFA1A1AA),
+                                            modifier = Modifier.size(13.dp)
+                                        )
                                         Spacer(modifier = Modifier.width(5.dp))
                                         Text(
                                             text = option.label,

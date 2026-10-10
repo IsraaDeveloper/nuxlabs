@@ -449,46 +449,7 @@ fun AIScreen(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // ==========================================
-            // 3. QUICK ACTIONS CHIPS (AKSI CEPAT)
-            // ==========================================
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                val quickActions = listOf(
-                    Triple("📊 Analisis Instance", "Tolong analisis instance ${currentInstance?.name ?: ""} (${currentInstance?.mcVersion ?: ""}), apakah mod dan spesifikasinya sudah optimal?", Color(0xFF10B981)),
-                    Triple("🔍 Diagnosa Log", "Tolong periksa cuplikan log game terakhir saya dan analisis apakah ada error atau warning yang perlu diperbaiki.", Color(0xFF38BDF8)),
-                    Triple("⚡ Rekomendasi Renderer", "Renderer apa dan pengaturan grafik apa yang paling bagus untuk Minecraft ${currentInstance?.mcVersion ?: ""} di HP saya agar FPS stabil?", Color(0xFFF59E0B)),
-                    Triple("💡 Mod FPS Terbaik", "Apa saja rekomendasi mod peningkat FPS dan optimasi memori terbaik untuk versi ${currentInstance?.mcVersion ?: ""} (${currentInstance?.loader ?: "Fabric"})?", Color(0xFFA855F7))
-                )
 
-                quickActions.forEach { (label, prompt, chipColor) ->
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(26.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(chipColor.copy(alpha = 0.08f))
-                            .border(1.dp, chipColor.copy(alpha = 0.25f), RoundedCornerShape(6.dp))
-                            .clickable(enabled = streamState !is AIStreamState.Connecting && streamState !is AIStreamState.Streaming) {
-                                sendMessage(prompt)
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = label,
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = chipColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
 
             // ==========================================
             // 4. CHAT HISTORY CONVERSATION
@@ -519,7 +480,12 @@ fun AIScreen(
                                 .border(1.dp, Color(0x4D10B981), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("✨", fontSize = 22.sp)
+                            Icon(
+                                imageVector = Icons.Outlined.AutoFixHigh,
+                                contentDescription = null,
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
@@ -541,35 +507,6 @@ fun AIScreen(
                             lineHeight = 13.sp,
                             modifier = Modifier.fillMaxWidth(0.85f)
                         )
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Suggestion Pills
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(pillShape)
-                                    .background(Color(0xFF131B26))
-                                    .border(1.dp, Color(0x2638BDF8), pillShape)
-                                    .clickable { sendMessage("Halo NUX AI! Berikan gambaran singkat kondisi instance Minecraft saya sekarang.") }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text("🚀 Cek Kondisi Instance Saya", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8))
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .clip(pillShape)
-                                    .background(Color(0xFF131B26))
-                                    .border(1.dp, Color(0x2610B981), pillShape)
-                                    .clickable { sendMessage("Tolong rekomendasikan shader pack dan mod pendukung yang ringan untuk HP saya.") }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text("✨ Tanya Shader Ringan", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF34D399))
-                            }
-                        }
                     }
                 } else {
                     LazyColumn(

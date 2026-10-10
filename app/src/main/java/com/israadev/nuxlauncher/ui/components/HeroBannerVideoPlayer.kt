@@ -81,9 +81,10 @@ fun HeroBannerVideoPlayer(
             applyTransform(animatedRotation)
         }
 
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
+        key(videoPath) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
                 TextureView(ctx).apply {
                     textureViewRef = this
                     var mediaPlayer: MediaPlayer? = null
@@ -164,6 +165,7 @@ fun HeroBannerVideoPlayer(
                 textureViewRef = tv
                 applyTransform(animatedRotation)
             }
-        )
+            )
+        }
     }
 }

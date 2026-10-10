@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -369,7 +370,12 @@ fun NuxCrashDialog(
                                         .padding(9.dp)
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("💡", fontSize = 11.sp)
+                                        Icon(
+                                            imageVector = Icons.Outlined.Lightbulb,
+                                            contentDescription = null,
+                                            tint = Color(0xFFFBBF24),
+                                            modifier = Modifier.size(13.dp)
+                                        )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = "SOLUSI & SARAN PEMULIHAN",
@@ -545,25 +551,6 @@ fun NuxCrashDialog(
                                                 fontSize = 10.sp
                                             )
                                         }
-                                    }
-
-                                    // Tutup
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(0.9f)
-                                            .height(34.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFF27272A))
-                                            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
-                                            .clickable { onDismiss() },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "TUTUP",
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 10.sp
-                                        )
                                     }
                                 }
                             }
@@ -1071,7 +1058,7 @@ fun NuxCrashDialog(
 
                                                 Spacer(modifier = Modifier.height(10.dp))
                                                 Text(
-                                                    text = "💡 Tips: Anda dapat memasukkan API Key pribadi (OpenRouter / Gemini) di Pengaturan > Integrasi AI untuk penggunaan tanpa batas.",
+                                                    text = "Tips: Anda dapat memasukkan API Key pribadi (OpenRouter / Gemini) di Pengaturan > Integrasi AI untuk penggunaan tanpa batas.",
                                                     fontSize = 7.5.sp,
                                                     color = Color(0xFF64748B),
                                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center

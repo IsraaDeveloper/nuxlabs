@@ -48,19 +48,19 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 private data class PremiumFeatureItem(
-    val icon: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val title: String,
     val desc: String
 )
 
 private val PREMIUM_FEATURES = listOf(
-    PremiumFeatureItem("🎙️", "Voice Rooms Real-Time", "Masuk dan buat ruang obrolan suara mabar berlatensi rendah (LiveKit WebRTC)."),
-    PremiumFeatureItem("📦", "Unlimited Game Instances", "Buat profil Minecraft dan modpack tanpa batas (Pengguna Free dibatasi maks 3)."),
-    PremiumFeatureItem("🎬", "Custom Video Hero Banner", "Pasang video MP4 kustom sebagai latar belakang bergerak di dashboard launcher."),
-    PremiumFeatureItem("👑", "Lencana Profil VIP Eksklusif", "Tampilan lencana Cyber Golden / Emerald VIP di profil, header, dan chat mabar."),
-    PremiumFeatureItem("🧪", "Akses Versi Snapshot & Beta", "Bebas unduh dan mainkan build Snapshot terbaru, Old Beta, dan Old Alpha."),
-    PremiumFeatureItem("👥", "Multi-Account Switcher Bebas", "Simpan dan beralih antarakun tanpa batas (Pengguna Free dibatasi maks 2)."),
-    PremiumFeatureItem("🚀", "Turbo Download Multi-Thread", "Akselerasi unduhan aset dan pustaka dengan 48 parallel worker threads.")
+    PremiumFeatureItem(Icons.Outlined.Mic, "Voice Rooms Real-Time", "Masuk dan buat ruang obrolan suara mabar berlatensi rendah (LiveKit WebRTC)."),
+    PremiumFeatureItem(Icons.Outlined.AllInclusive, "Unlimited Game Instances", "Buat profil Minecraft dan modpack tanpa batas (Pengguna Free dibatasi maks 3)."),
+    PremiumFeatureItem(Icons.Outlined.VideoLibrary, "Custom Video Hero Banner", "Pasang video MP4 kustom sebagai latar belakang bergerak di dashboard launcher."),
+    PremiumFeatureItem(Icons.Outlined.WorkspacePremium, "Lencana Profil VIP Eksklusif", "Tampilan lencana Cyber Golden / Emerald VIP di profil, header, dan chat mabar."),
+    PremiumFeatureItem(Icons.Outlined.Science, "Akses Versi Snapshot & Beta", "Bebas unduh dan mainkan build Snapshot terbaru, Old Beta, dan Old Alpha."),
+    PremiumFeatureItem(Icons.Outlined.People, "Multi-Account Switcher Bebas", "Simpan dan beralih antarakun tanpa batas (Pengguna Free dibatasi maks 2)."),
+    PremiumFeatureItem(Icons.Outlined.Speed, "Turbo Download Multi-Thread", "Akselerasi unduhan aset dan pustaka dengan 48 parallel worker threads.")
 )
 
 private fun formatTimestamp(timestamp: Long?): String {
@@ -353,7 +353,12 @@ fun NuxPremiumDialog(
                                         .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(6.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(item.icon, fontSize = 14.sp)
+                                    Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = null,
+                                        tint = if (isUserPremium) themeAccentColor else NuxColors.MintGreen,
+                                        modifier = Modifier.size(15.dp)
+                                    )
                                 }
 
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -465,9 +470,11 @@ fun NuxPremiumDialog(
                                                 .border(1.dp, themeAccentColor, CircleShape),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Text(
-                                                text = if (isLifetime) "👑" else if (isYearly) "💎" else "⚡",
-                                                fontSize = 11.sp
+                                            Icon(
+                                                imageVector = if (isLifetime) Icons.Outlined.WorkspacePremium else if (isYearly) Icons.Outlined.Diamond else Icons.Outlined.Bolt,
+                                                contentDescription = null,
+                                                tint = themeAccentColor,
+                                                modifier = Modifier.size(13.dp)
                                             )
                                         }
                                         Spacer(modifier = Modifier.width(6.dp))
@@ -865,22 +872,6 @@ fun NuxPremiumDialog(
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // ==========================================
-            // 3. FOOTER CLOSE BUTTON
-            // ==========================================
-            NuxButton(
-                onClick = onDismissRequest,
-                backgroundColor = Color(0xFF1A1D27),
-                borderColor = Color(0x33FFFFFF),
-                contentColor = Color.White,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(30.dp)
-            ) {
-                Text("TUTUP", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 9.5.sp)
-            }
         }
     }
 }

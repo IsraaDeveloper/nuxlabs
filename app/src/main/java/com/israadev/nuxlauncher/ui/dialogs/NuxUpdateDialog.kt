@@ -267,23 +267,25 @@ fun NuxUpdateDialog(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        NuxButton(
-                            onClick = onDismiss,
-                            backgroundColor = Color(0xFF1A1D27),
-                            borderColor = Color(0x33FFFFFF),
-                            contentColor = Color.White,
-                            cornerRadius = 8.dp,
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Text(
-                                text = if (updateInfo.isUpdateAvailable) "NANTI" else "TUTUP",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                color = Color.White
-                            )
-                        }
+                        if (updateInfo.isUpdateAvailable) {
+                            NuxButton(
+                                onClick = onDismiss,
+                                backgroundColor = Color(0xFF1A1D27),
+                                borderColor = Color(0x33FFFFFF),
+                                contentColor = Color.White,
+                                cornerRadius = 8.dp,
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text(
+                                    text = "NANTI",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp,
+                                    color = Color.White
+                                )
+                            }
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
 
                         NuxButton(
                             onClick = {

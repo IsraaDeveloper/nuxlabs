@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.automirrored.outlined.RotateRight
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -91,6 +92,7 @@ fun DashboardScreen() {
 
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditInstanceDialog by remember { mutableStateOf(false) }
+    var instanceToEdit by remember { mutableStateOf<com.israadev.nuxlauncher.core.models.Instance?>(null) }
     var instanceToDelete by remember { mutableStateOf<com.israadev.nuxlauncher.core.models.Instance?>(null) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var updateDialogInfo by remember { mutableStateOf<AndroidUpdateInfo?>(null) }
@@ -152,10 +154,17 @@ fun DashboardScreen() {
                         return@launch
                     }
 
-                    val destFile = File(context.filesDir, "hero_banner.mp4")
+                    val destFile = File(context.filesDir, "hero_banner_${System.currentTimeMillis()}.mp4")
                     context.contentResolver.openInputStream(uri)?.use { input ->
                         FileOutputStream(destFile).use { output ->
                             input.copyTo(output)
+                        }
+                    }
+
+                    // Hapus file hero_banner lama agar hemat memori dan penyimpanan
+                    context.filesDir.listFiles()?.forEach { file ->
+                        if (file.name.startsWith("hero_banner") && file.absolutePath != destFile.absolutePath) {
+                            file.delete()
                         }
                     }
 
@@ -237,11 +246,13 @@ fun DashboardScreen() {
                             .then(if (!isHomeTab) Modifier.blur((18.dp).resp()) else Modifier)
                     ) {
                         if (hasValidHeroVideo) {
-                            HeroBannerVideoPlayer(
-                                videoPath = launcherSettings.heroAnimationVideoPath,
-                                rotationDegrees = launcherSettings.heroAnimationRotation,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            key(launcherSettings.heroAnimationVideoPath) {
+                                HeroBannerVideoPlayer(
+                                    videoPath = launcherSettings.heroAnimationVideoPath,
+                                    rotationDegrees = launcherSettings.heroAnimationRotation,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         } else {
                             Image(
                                 painter = painterResource(id = R.drawable.mc_hero_bg),
@@ -516,6 +527,42 @@ fun DashboardScreen() {
                                         }
                                     }
 
+                                    // Button to rotate background video animation (0° -> 90° -> 180° -> 270°)
+                                    val rotateBtnShape = RoundedCornerShape((12.dp).resp())
+                                    Box(
+                                        modifier = Modifier
+                                            .size((32.dp).resp())
+                                            .clip(rotateBtnShape)
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(Color(0xA6181B22), Color(0xBF0E1015))
+                                                ),
+                                                rotateBtnShape
+                                            )
+                                            .border(
+                                                1.dp,
+                                                Brush.verticalGradient(
+                                                    listOf(Color(0x66FFFFFF), Color(0x1F000000))
+                                                ),
+                                                rotateBtnShape
+                                            )
+                                            .clickable {
+                                                val nextRotation = (launcherSettings.heroAnimationRotation + 90) % 360
+                                                SettingsManager.updateSettings(
+                                                    context,
+                                                    launcherSettings.copy(heroAnimationRotation = nextRotation)
+                                                )
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Outlined.RotateRight,
+                                            contentDescription = "Ubah Rotasi Video Animasi",
+                                            tint = Color.White,
+                                            modifier = Modifier.size((17.dp).resp())
+                                        )
+                                    }
+
                                     // Button to change background animation instantly
                                     val imgBtnShape = RoundedCornerShape((12.dp).resp())
                                     Box(
@@ -754,13 +801,36 @@ fun DashboardScreen() {
                                                                         fontSize = (9.5.sp).resp()
                                                                     )
                                                                 }
-                                                                if (isSelected) {
-                                                                    Icon(
-                                                                        imageVector = Icons.Default.Check,
-                                                                        contentDescription = "Selected",
-                                                                        tint = NuxColors.ForestGreen,
-                                                                        modifier = Modifier.size((16.dp).resp())
-                                                                    )
+                                                                Row(
+                                                                    verticalAlignment = Alignment.CenterVertically,
+                                                                    horizontalArrangement = Arrangement.spacedBy((6.dp).resp())
+                                                                ) {
+                                                                    if (isSelected) {
+                                                                        Icon(
+                                                                            imageVector = Icons.Default.Check,
+                                                                            contentDescription = "Selected",
+                                                                            tint = NuxColors.ForestGreen,
+                                                                            modifier = Modifier.size((16.dp).resp())
+                                                                        )
+                                                                    }
+                                                                    Box(
+                                                                        modifier = Modifier
+                                                                            .size((28.dp).resp())
+                                                                            .clip(CircleShape)
+                                                                            .background(Color(0x26FFFFFF), CircleShape)
+                                                                            .clickable {
+                                                                                isVersionDropdownExpanded = false
+                                                                                instanceToEdit = inst
+                                                                            },
+                                                                        contentAlignment = Alignment.Center
+                                                                    ) {
+                                                                        Icon(
+                                                                            imageVector = Icons.Outlined.Settings,
+                                                                            contentDescription = "Pengaturan Instance",
+                                                                            tint = Color(0xFFD4D4D8),
+                                                                            modifier = Modifier.size((15.dp).resp())
+                                                                        )
+                                                                    }
                                                                 }
                                                             }
                                                         },
@@ -931,20 +1001,26 @@ fun DashboardScreen() {
         }
 
         // Edit Instance Dialog
-        if (showEditInstanceDialog) {
-            selectedInstance?.let { inst ->
-                NuxEditInstanceDialog(
-                    instance = inst,
-                    onDismiss = { showEditInstanceDialog = false },
-                    onInstanceUpdated = { updated ->
-                        InstanceManager.updateInstance(context, updated)
-                    },
-                    onInstanceDeleted = { toDelete ->
-                        InstanceManager.deleteInstance(context, toDelete.id)
-                        Toast.makeText(context, "Instance ${toDelete.name} berhasil dihapus!", Toast.LENGTH_SHORT).show()
-                    }
-                )
-            }
+        val targetEditInstance = instanceToEdit ?: if (showEditInstanceDialog) selectedInstance else null
+        targetEditInstance?.let { inst ->
+            NuxEditInstanceDialog(
+                instance = inst,
+                onDismiss = {
+                    instanceToEdit = null
+                    showEditInstanceDialog = false
+                },
+                onInstanceUpdated = { updated ->
+                    instanceToEdit = null
+                    showEditInstanceDialog = false
+                    InstanceManager.updateInstance(context, updated)
+                },
+                onInstanceDeleted = { toDelete ->
+                    instanceToEdit = null
+                    showEditInstanceDialog = false
+                    InstanceManager.deleteInstance(context, toDelete.id)
+                    Toast.makeText(context, "Instance ${toDelete.name} berhasil dihapus!", Toast.LENGTH_SHORT).show()
+                }
+            )
         }
 
         // Delete Instance Confirmation Dialog

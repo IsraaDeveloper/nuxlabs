@@ -216,7 +216,7 @@ fun NuxDeleteInstanceDialog(
                                 .height(34.dp)
                         ) {
                             Text(
-                                text = "HAPUS INSTANCE 🗑",
+                                text = "HAPUS INSTANCE",
                                 fontWeight = FontWeight.Black,
                                 fontSize = 10.sp,
                                 color = Color.White,
