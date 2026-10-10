@@ -35,180 +35,131 @@ import com.israadev.nuxlauncher.ui.theme.resp
 data class NuxNavItem(
     val id: String,
     val icon: ImageVector,
-    val contentDescription: String
+    val label: String
 )
 
 val NUX_NAV_ITEMS = listOf(
     NuxNavItem("home", Icons.Outlined.Home, "Home"),
-    NuxNavItem("accounts", Icons.Outlined.Person, "Accounts"),
-    NuxNavItem("mods", Icons.Outlined.Extension, "Mods"),
-    NuxNavItem("ai", Icons.Outlined.Psychology, "NUX AI"),
-    NuxNavItem("friends", Icons.Outlined.Group, "Friends"),
-    NuxNavItem("settings", Icons.Outlined.Settings, "Settings")
+    NuxNavItem("accounts", Icons.Outlined.Person, "Akun"),
+    NuxNavItem("mods", Icons.Outlined.Extension, "Mod"),
+    NuxNavItem("ai", Icons.Outlined.Psychology, "AI"),
+    NuxNavItem("settings", Icons.Outlined.Settings, "Pengaturan")
 )
 
 /**
- * Compact Dark Obsidian Cyber-Glass Sidebar
+ * NUX Cyber-Emerald Sidebar matching reference screenshot
  */
 @Composable
 fun NuxSidebar(
     activeTab: String,
     onTabSelected: (String) -> Unit,
+    onOpenAbout: () -> Unit = {},
     currentAccount: UserAccount? = null,
     launcherUser: AuthUser? = null,
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
 
-    Row(
-        modifier = modifier.fillMaxHeight()
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(vertical = (6.dp).resp()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
+        // TOP BRAND LOGO (Official NUX Icon)
+        val logoShape = RoundedCornerShape((10.dp).resp())
+        Box(
+            modifier = Modifier
+                .size((34.dp).resp())
+                .clip(logoShape)
+                .background(Color(0xFF09090B))
+                .border(1.dp, Color(0x33000000), logoShape)
+                .clickable { onTabSelected("home") },
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.nux_icon),
+                contentDescription = "NUX Logo",
+                modifier = Modifier.size((22.dp).resp())
+            )
+        }
+
+        Spacer(modifier = Modifier.height((6.dp).resp()))
+
+        // CENTER: NAV ITEMS (Icon + Label)
         Column(
             modifier = Modifier
-                .width((52.dp).resp())
-                .fillMaxHeight()
-                .background(NuxColors.Background)
-                .padding(top = (6.dp).resp(), bottom = (8.dp).resp(), start = (3.dp).resp(), end = (3.dp).resp()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+                .weight(1f)
+                .verticalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy((6.dp).resp()),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // TOP BRAND LOGO (Official NUX Icon)
-            val logoShape = RoundedCornerShape((8.dp).resp())
-            Box(
-                modifier = Modifier
-                    .size((32.dp).resp())
-                    .clip(logoShape)
-                    .background(NuxColors.SurfaceElevated)
-                    .border(1.dp, NuxColors.CardBorder, logoShape)
-                    .clickable { onTabSelected("home") },
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.nux_icon),
-                    contentDescription = "NUX Logo",
-                    modifier = Modifier.size((20.dp).resp())
-                )
-            }
+            NUX_NAV_ITEMS.forEach { item ->
+                val isSelected = activeTab == item.id
+                val shape = RoundedCornerShape((12.dp).resp())
 
-            Spacer(modifier = Modifier.height((5.dp).resp()))
-
-            // CENTER: 9 VECTOR ICON BUTTONS
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(scrollState),
-                verticalArrangement = Arrangement.spacedBy((4.dp).resp()),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                NUX_NAV_ITEMS.forEach { item ->
-                    val isSelected = activeTab == item.id
-                    val shape = RoundedCornerShape((9.dp).resp())
-
+                Column(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape((8.dp).resp()))
+                        .clickable { onTabSelected(item.id) }
+                        .padding(horizontal = (2.dp).resp(), vertical = (2.dp).resp()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Box(
                         modifier = Modifier
-                            .size((34.dp).resp())
+                            .size(width = (40.dp).resp(), height = (25.dp).resp())
                             .background(
-                                color = if (isSelected) Color(0xFF10B981).copy(alpha = 0.15f) else Color.Transparent,
+                                color = if (isSelected) Color(0xFF09090B) else Color.Transparent,
                                 shape = shape
                             )
                             .border(
                                 width = 1.dp,
-                                color = if (isSelected) Color(0xFF10B981).copy(alpha = 0.55f) else Color.Transparent,
+                                color = if (isSelected) Color(0x33000000) else Color.Transparent,
                                 shape = shape
                             )
-                            .clip(shape)
-                            .clickable { onTabSelected(item.id) },
+                            .clip(shape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = item.icon,
-                            contentDescription = item.contentDescription,
-                            tint = if (isSelected) NuxColors.ForestGreen else Color(0xFF71717A),
-                            modifier = Modifier.size((17.dp).resp())
-                        )
-
-                        // Notification badge dot for friends tab
-                        if (item.id == "friends") {
-                            val friendsList by NuxSocialManager.friends.collectAsState()
-                            val hasUnread = friendsList.any { it.unreadCount > 0 || it.isPendingReceived }
-                            if (hasUnread) {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.TopEnd)
-                                        .padding((2.5.dp).resp())
-                                        .size((5.5.dp).resp())
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFF43F5E))
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height((5.dp).resp()))
-
-            // BOTTOM: USER PROFILE AVATAR SHORTCUT
-            val userPhoto = launcherUser?.photoURL ?: currentAccount?.photoUrl
-            val userName = launcherUser?.username ?: currentAccount?.username
-            val shape = RoundedCornerShape((8.dp).resp())
-
-            Box(
-                modifier = Modifier
-                    .size((30.dp).resp())
-                    .clip(shape)
-                    .background(NuxColors.SurfaceElevated, shape)
-                    .border(1.dp, NuxColors.CardBorder, shape)
-                    .clickable { onTabSelected("settings") },
-                contentAlignment = Alignment.Center
-            ) {
-                if (!userName.isNullOrBlank()) {
-                    if (!userPhoto.isNullOrBlank()) {
-                        NuxNetworkImage(
-                            model = userPhoto,
-                            contentDescription = "Avatar",
-                            fallbackInitials = userName,
-                            modifier = Modifier.fillMaxSize(),
-                            shape = shape
-                        )
-                    } else {
-                        Text(
-                            text = userName.take(2).uppercase(),
-                            color = NuxColors.ForestGreen,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = (10.5.sp).resp()
+                            contentDescription = item.label,
+                            tint = if (isSelected) NuxColors.ForestGreen else Color(0xFF09090B).copy(alpha = 0.85f),
+                            modifier = Modifier.size((16.dp).resp())
                         )
                     }
-                } else {
-                    Icon(
-                        imageVector = Icons.Outlined.Person,
-                        contentDescription = "Settings",
-                        tint = NuxColors.ForestGreen,
-                        modifier = Modifier.size((17.dp).resp())
+
+                    Spacer(modifier = Modifier.height((2.dp).resp()))
+
+                    Text(
+                        text = item.label,
+                        color = Color(0xFF09090B),
+                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                        fontSize = (8.5.sp).resp(),
+                        maxLines = 1
                     )
                 }
-
-                // Online status indicator dot
-                Box(
-                    modifier = Modifier
-                        .size((6.dp).resp())
-                        .align(Alignment.BottomEnd)
-                        .offset(x = (-1).dp, y = (-1).dp)
-                        .background(
-                            if (launcherUser?.isActivated == true || currentAccount != null) NuxColors.ForestGreen else NuxColors.Amber,
-                            CircleShape
-                        )
-                        .border(1.dp, Color(0xFF09090B), CircleShape)
-                )
             }
         }
 
-        // Right hairline border divider
+        Spacer(modifier = Modifier.height((4.dp).resp()))
+
+        // BOTTOM: INFO (i) ICON
         Box(
             modifier = Modifier
-                .width(1.dp)
-                .fillMaxHeight()
-                .background(Color(0x14FFFFFF))
-        )
+                .size((26.dp).resp())
+                .clip(CircleShape)
+                .background(Color(0xFF09090B).copy(alpha = 0.14f))
+                .border(1.dp, Color(0xFF09090B).copy(alpha = 0.35f), CircleShape)
+                .clickable { onOpenAbout() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = "Tentang & Lisensi",
+                tint = Color(0xFF09090B),
+                modifier = Modifier.size((14.dp).resp())
+            )
+        }
     }
 }

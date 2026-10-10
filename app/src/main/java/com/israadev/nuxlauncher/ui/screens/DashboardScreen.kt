@@ -1,7 +1,12 @@
 package com.israadev.nuxlauncher.ui.screens
 
+import android.media.MediaMetadataRetriever
 import android.widget.Toast
 import java.io.File
+import java.io.FileOutputStream
+import kotlin.math.roundToInt
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,15 +17,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.BarChart
-import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -36,6 +41,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.israadev.nuxlauncher.R
 import com.israadev.nuxlauncher.core.account.AccountManager
 import com.israadev.nuxlauncher.core.download.MinecraftDownloader
@@ -119,782 +126,708 @@ fun DashboardScreen() {
 
     val downloader = remember { MinecraftDownloader(context) }
 
+    var isVersionDropdownExpanded by remember { mutableStateOf(false) }
+    var isAccountDropdownExpanded by remember { mutableStateOf(false) }
+
+    // Instant Background Video Animation Picker (zero preview, instant swap)
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val retriever = MediaMetadataRetriever()
+                    retriever.setDataSource(context, uri)
+                    val durationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    val durationMs = durationStr?.toLongOrNull() ?: 0L
+                    retriever.release()
+
+                    if (durationMs > 20_500L) {
+                        val seconds = (durationMs / 1000f).roundToInt()
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Durasi video terlalu panjang ($seconds dtk)! Maksimum 20 detik.", Toast.LENGTH_LONG).show()
+                        }
+                        return@launch
+                    }
+
+                    val destFile = File(context.filesDir, "hero_banner.mp4")
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        FileOutputStream(destFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    val updated = launcherSettings.copy(
+                        heroAnimationEnabled = true,
+                        heroAnimationVideoPath = destFile.absolutePath
+                    )
+                    SettingsManager.updateSettings(context, updated)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Animasi background berhasil diganti!", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Gagal memproses video: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+    }
+
     if (currentTab == "gui_editor") {
         CustomGuiEditorScreen(
             onNavigateBack = { currentTab = "settings" },
             modifier = Modifier.fillMaxSize()
         )
     } else {
+        // Outer Container: NUX Launcher Cyber-Emerald Green (Changed from yellow in screenshot)
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(NuxColors.Background)
+                .background(NuxColors.ForestGreen)
+                .padding(all = (6.dp).resp())
         ) {
             Row(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // --- 1. COMPACT LEFT SIDEBAR ---
+                // --- 1. LEFT SIDEBAR ---
                 NuxSidebar(
                     activeTab = currentTab,
                     onTabSelected = { tabId ->
-                        if (tabId == "home" || tabId == "accounts" || tabId == "settings" || tabId == "friends" || tabId == "mods" || tabId == "ai") {
+                        if (tabId == "home" || tabId == "accounts" || tabId == "settings" || tabId == "mods" || tabId == "ai" || tabId == "friends") {
                             currentTab = tabId
                         } else {
                             Toast.makeText(context, "Fitur ${tabId.replaceFirstChar { it.uppercase() }} segera hadir di mobile!", Toast.LENGTH_SHORT).show()
                         }
                     },
+                    onOpenAbout = { showAboutDialog = true },
                     currentAccount = currentAccount,
-                    launcherUser = launcherUser
+                    launcherUser = launcherUser,
+                    modifier = Modifier
+                        .width((52.dp).resp())
+                        .fillMaxHeight()
                 )
 
-                // --- 2. MAIN CONTENT AREA ---
-                if (currentTab == "accounts") {
-                    AccountsScreen(
-                        onNavigateBack = { currentTab = "home" },
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    )
-                } else if (currentTab == "mods") {
-                    ModsScreen(
-                        onNavigateBack = { currentTab = "home" },
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    )
-                } else if (currentTab == "ai") {
-                    AIScreen(
-                        onNavigateBack = { currentTab = "home" },
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    )
-                } else if (currentTab == "settings") {
-                    SettingsScreen(
-                        onNavigateBack = { currentTab = "home" },
-                        onOpenGuiEditor = { currentTab = "gui_editor" },
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    )
-                } else if (currentTab == "friends") {
-                    FriendsScreen(
-                        onNavigateBack = { currentTab = "home" },
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    )
-                } else {
-                    // DASHBOARD SCREEN
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .padding(start = (12.dp).resp(), end = (12.dp).resp(), top = (6.dp).resp(), bottom = (6.dp).resp())
-                    ) {
-                        // TOP BAR (With Unofficial Modified Version label in the center)
+                Spacer(modifier = Modifier.width((6.dp).resp()))
+
+                // --- 2. MAIN CARD ---
+                val mainCardShape = RoundedCornerShape((22.dp).resp())
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(mainCardShape)
+                        .background(Color(0xFF09090B), mainCardShape)
+                        .border(2.dp, Color(0xFF14171E), mainCardShape)
+                ) {
+                    if (currentTab == "accounts") {
+                        AccountsScreen(
+                            onNavigateBack = { currentTab = "home" },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (currentTab == "mods") {
+                        ModsScreen(
+                            onNavigateBack = { currentTab = "home" },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (currentTab == "ai") {
+                        AIScreen(
+                            onNavigateBack = { currentTab = "home" },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (currentTab == "settings") {
+                        SettingsScreen(
+                            onNavigateBack = { currentTab = "home" },
+                            onOpenGuiEditor = { currentTab = "gui_editor" },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else if (currentTab == "friends") {
+                        FriendsScreen(
+                            onNavigateBack = { currentTab = "home" },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        // --- CINEMATIC HOME BANNER VIEW (Matching Reference Screenshot) ---
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = (5.dp).resp())
+                            modifier = Modifier.fillMaxSize()
                         ) {
-                            Text(
-                                text = "DASHBOARD",
-                                color = Color.White,
-                                fontWeight = FontWeight.Black,
-                                fontSize = (13.5.sp).resp(),
-                                letterSpacing = (0.7.sp).resp(),
-                                modifier = Modifier.align(Alignment.CenterStart)
+                            // 1. Background Video Animation or Fallback Scenery
+                            val hasValidHeroVideo = launcherSettings.heroAnimationEnabled &&
+                                    launcherSettings.heroAnimationVideoPath.isNotBlank() &&
+                                    File(launcherSettings.heroAnimationVideoPath).exists()
+
+                            if (hasValidHeroVideo) {
+                                HeroBannerVideoPlayer(
+                                    videoPath = launcherSettings.heroAnimationVideoPath,
+                                    rotationDegrees = launcherSettings.heroAnimationRotation,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Image(
+                                    painter = painterResource(id = R.drawable.mc_hero_bg),
+                                    contentDescription = "Minecraft Scenery",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                    alpha = 0.45f
+                                )
+                            }
+
+                            // 2. Gradients for Legibility
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height((80.dp).resp())
+                                    .align(Alignment.TopCenter)
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(Color(0x99000000), Color.Transparent)
+                                        )
+                                    )
                             )
 
-                            // Center: Unofficial Modified Version Label (Zalith & GPL-3.0 Compliance, Clickable to About)
                             Box(
                                 modifier = Modifier
-                                    .align(Alignment.Center)
+                                    .fillMaxWidth()
+                                    .height((130.dp).resp())
+                                    .align(Alignment.BottomCenter)
                                     .background(
-                                        Color(0x1AFFFFFF),
-                                        RoundedCornerShape((6.dp).resp())
+                                        Brush.verticalGradient(
+                                            colors = listOf(Color.Transparent, Color(0xCC000000))
+                                        )
                                     )
-                                    .border(
-                                        1.dp,
-                                        Color(0x26FFFFFF),
-                                        RoundedCornerShape((6.dp).resp())
-                                    )
-                                    .clickable { showAboutDialog = true }
-                                    .padding(horizontal = (8.dp).resp(), vertical = (3.dp).resp()),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy((5.dp).resp())
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size((5.dp).resp())
-                                            .background(NuxColors.Amber, CircleShape)
-                                    )
-                                    Text(
-                                        text = "UNOFFICIAL MODIFIED VERSION",
-                                        color = NuxColors.GrayNeutral,
-                                        fontSize = (8.sp).resp(),
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = (0.6.sp).resp()
-                                    )
-                                    Spacer(modifier = Modifier.width((2.dp).resp()))
-                                    Icon(
-                                        imageVector = Icons.Outlined.Info,
-                                        contentDescription = "Tentang & Lisensi",
-                                        tint = NuxColors.GrayNeutral,
-                                        modifier = Modifier.size((11.dp).resp())
-                                    )
-                                }
-                            }
+                            )
 
-                            // Compact Profile & VIP Indicator
+                            // 3. TOP BAR INSIDE MAIN CARD
                             Row(
-                                modifier = Modifier.align(Alignment.CenterEnd),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy((6.dp).resp())
-                            ) {
-                                // VIP / Upgrade Badge
-                                val isVip = launcherUser?.isActivated == true
-                                val vipShape = RoundedCornerShape((7.dp).resp())
-                                Box(
-                                    modifier = Modifier
-                                        .clip(vipShape)
-                                        .background(
-                                            if (isVip) Color(0xFFF59E0B).copy(alpha = 0.18f) else Color(0x1AFFFFFF),
-                                            vipShape
-                                        )
-                                        .border(
-                                            1.dp,
-                                            if (isVip) Color(0xFFF59E0B) else Color(0x33FFFFFF),
-                                            vipShape
-                                        )
-                                        .clickable {
-                                            premiumInitialPrompt = if (isVip) "Status NUX VIP Anda saat ini aktif!" else null
-                                            showPremiumDialog = true
-                                        }
-                                        .padding(horizontal = (7.dp).resp(), vertical = (3.dp).resp()),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = if (isVip) "👑 VIP" else "★ UPGRADE",
-                                            color = if (isVip) Color(0xFFFBBF24) else Color(0xFF38BDF8),
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = (8.5.sp).resp(),
-                                            letterSpacing = (0.5.sp).resp()
-                                        )
-                                    }
-                                }
-
-                                val userShape = RoundedCornerShape((8.dp).resp())
-                                Row(
-                                    modifier = Modifier
-                                        .clip(userShape)
-                                        .background(NuxColors.SurfaceElevated, userShape)
-                                        .border(1.dp, NuxColors.CardBorder, userShape)
-                                        .clickable { currentTab = "settings" }
-                                        .padding(horizontal = (8.dp).resp(), vertical = (3.5.dp).resp()),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    val photo = launcherUser?.photoURL
-                                    if (!photo.isNullOrBlank()) {
-                                        NuxNetworkImage(
-                                            model = photo,
-                                            contentDescription = "Profile",
-                                            fallbackInitials = launcherUser?.username ?: "User",
-                                            modifier = Modifier.size((15.dp).resp()),
-                                            shape = CircleShape
-                                        )
-                                    } else {
-                                        Box(
-                                            modifier = Modifier
-                                                .size((6.5.dp).resp())
-                                                .background(
-                                                    if (launcherUser?.isActivated == true) NuxColors.ForestGreen else NuxColors.Amber,
-                                                    CircleShape
-                                                )
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width((5.dp).resp()))
-                                    Text(
-                                        text = launcherUser?.username ?: "PROFIL",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = (10.5.sp).resp()
-                                    )
-                                }
-                            }
-                        }
-
-                        // MAIN TWO-COLUMN SPLIT (Landscape Optimized)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            horizontalArrangement = Arrangement.spacedBy((10.dp).resp())
-                        ) {
-                            // LEFT COLUMN: HERO CARD + 4 QUICK ACTION CARDS (Exactly matching PC version)
-                            Column(
                                 modifier = Modifier
-                                    .weight(1.38f)
-                                    .fillMaxHeight(),
-                                verticalArrangement = Arrangement.spacedBy((7.dp).resp())
+                                    .fillMaxWidth()
+                                    .align(Alignment.TopCenter)
+                                    .padding(horizontal = (14.dp).resp(), vertical = (10.dp).resp()),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // 1. HERO CARD (Matching PC style)
-                                val heroShape = RoundedCornerShape((15.dp).resp())
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(1.35f)
-                                        .clip(heroShape)
-                                        .background(NuxColors.SurfaceElevated, heroShape)
-                                        .border(1.dp, NuxColors.CardBorder, heroShape)
-                                ) {
-                                    if (selectedInstance != null) {
-                                        val inst = selectedInstance!!
-                                        val isFullyDownloaded = inst.isDownloaded && InstanceManager.isInstanceDownloaded(context, inst)
+                                // Top-Left: Account Switcher Pill [ (V) Username ˅ ]
+                                val accounts by AccountManager.accounts.collectAsState()
+                                val activeUsername = currentAccount?.username ?: launcherUser?.username ?: "Pilih Akun"
+                                val initialLetter = activeUsername.firstOrNull()?.uppercase() ?: "U"
 
-                                        // Scenery background / Animated video
-                                        val hasValidHeroVideo = launcherSettings.heroAnimationEnabled &&
-                                                launcherSettings.heroAnimationVideoPath.isNotBlank() &&
-                                                File(launcherSettings.heroAnimationVideoPath).exists()
-
-                                        if (hasValidHeroVideo) {
-                                            HeroBannerVideoPlayer(
-                                                videoPath = launcherSettings.heroAnimationVideoPath,
-                                                rotationDegrees = launcherSettings.heroAnimationRotation,
-                                                modifier = Modifier.fillMaxSize()
+                                Box {
+                                    val accPillShape = RoundedCornerShape((18.dp).resp())
+                                    Row(
+                                        modifier = Modifier
+                                            .clip(accPillShape)
+                                            .background(Color(0xD90D0F14), accPillShape)
+                                            .border(1.dp, Color(0x33FFFFFF), accPillShape)
+                                            .clickable { isAccountDropdownExpanded = true }
+                                            .padding(horizontal = (6.dp).resp(), vertical = (4.dp).resp()),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy((8.dp).resp())
+                                    ) {
+                                        val photo = launcherUser?.photoURL ?: currentAccount?.photoUrl
+                                        if (!photo.isNullOrBlank()) {
+                                            NuxNetworkImage(
+                                                model = photo,
+                                                contentDescription = "Profile",
+                                                fallbackInitials = activeUsername,
+                                                modifier = Modifier.size((22.dp).resp()),
+                                                shape = CircleShape
                                             )
                                         } else {
-                                            Image(
-                                                painter = painterResource(id = R.drawable.mc_hero_bg),
-                                                contentDescription = "Minecraft Scenery",
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.fillMaxSize(),
-                                                alpha = 0.35f
-                                            )
-                                        }
-
-                                        // Dark gradient overlay
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .background(
-                                                    Brush.horizontalGradient(
-                                                        colors = listOf(
-                                                            Color(0xF509090B),
-                                                            Color(0xDC0D0F14),
-                                                            Color(0x550D0F14)
-                                                        )
-                                                    )
-                                                )
-                                                .padding(horizontal = (16.dp).resp(), vertical = (10.dp).resp())
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.fillMaxSize(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Column(
-                                                    modifier = Modifier.weight(1f),
-                                                    verticalArrangement = Arrangement.Center
-                                                ) {
-                                                    // • FABRIC EDITION pill badge
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .background(Color(0xFF10B981).copy(alpha = 0.15f), RoundedCornerShape((7.dp).resp()))
-                                                            .border(1.dp, Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape((7.dp).resp()))
-                                                            .padding(horizontal = (7.dp).resp(), vertical = (2.5.dp).resp()),
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size((5.dp).resp())
-                                                                .background(NuxColors.ForestGreen, CircleShape)
-                                                        )
-                                                        Spacer(modifier = Modifier.width((5.dp).resp()))
-                                                        Text(
-                                                            text = "${inst.loader.uppercase()} EDITION",
-                                                            color = NuxColors.MintGreen,
-                                                            fontSize = (9.5.sp).resp(),
-                                                            fontWeight = FontWeight.Bold,
-                                                            letterSpacing = (0.7.sp).resp()
-                                                        )
-                                                    }
-
-                                                    Spacer(modifier = Modifier.height((4.dp).resp()))
-
-                                                    // Large instance title
-                                                    Text(
-                                                        text = inst.name,
-                                                        color = Color.White,
-                                                        fontWeight = FontWeight.Black,
-                                                        fontSize = (21.sp).resp(),
-                                                        letterSpacing = (-0.4).sp,
-                                                        maxLines = 1
-                                                    )
-
-                                                    Spacer(modifier = Modifier.height((2.dp).resp()))
-
-                                                    // Emerald gradient accent line
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size(width = (32.dp).resp(), height = (2.5.dp).resp())
-                                                            .background(
-                                                                Brush.horizontalGradient(
-                                                                    colors = listOf(NuxColors.ForestGreen, NuxColors.MintGreen)
-                                                                ),
-                                                                CircleShape
-                                                            )
-                                                    )
-
-                                                    Spacer(modifier = Modifier.height((4.dp).resp()))
-
-                                                    // Subtitle
-                                                    Text(
-                                                        text = "Version ${inst.mcVersion} — Click PLAY to launch this instance and craft seamlessly.",
-                                                        color = Color(0xFFA1A1AA),
-                                                        fontSize = (10.sp).resp(),
-                                                        lineHeight = (13.sp).resp(),
-                                                        maxLines = 2
-                                                    )
-                                                }
-
-                                                Spacer(modifier = Modifier.width((12.dp).resp()))
-
-                                                // Minimalist Cyber-Glass Play Button (Matching PC)
-                                                val playBtnShape = RoundedCornerShape((14.dp).resp())
-                                                Row(
-                                                    modifier = Modifier
-                                                        .clip(playBtnShape)
-                                                        .background(Color(0xFF181B22), playBtnShape)
-                                                        .border(
-                                                            width = 1.dp,
-                                                            color = NuxColors.ForestGreen.copy(alpha = 0.5f),
-                                                            shape = playBtnShape
-                                                        )
-                                                        .clickable {
-                                                            val account = currentAccount
-                                                            if (account == null) {
-                                                                Toast.makeText(context, "Silakan buat atau pilih akun terlebih dahulu!", Toast.LENGTH_SHORT).show()
-                                                                currentTab = "accounts"
-                                                                return@clickable
-                                                            }
-
-                                                            if (!isFullyDownloaded) {
-                                                                val targetRuntime = JavaRuntimeManager.getRecommendedRuntime(inst.mcVersion)
-                                                                isDownloading = true
-                                                                downloadTargetName = inst.name
-                                                                downloadProgress = 0f
-                                                                downloadMessage = "Menyiapkan OpenJDK (${JavaRuntimeManager.getRuntimeDisplayName(targetRuntime)})..."
-
-                                                                scope.launch {
-                                                                    JavaRuntimeManager.extractRuntime(context, targetRuntime) { p, msg ->
-                                                                        downloadProgress = p
-                                                                        downloadMessage = msg
-                                                                    }
-
-                                                                    val res = downloader.downloadInstance(inst) { p, msg ->
-                                                                        downloadProgress = p
-                                                                        downloadMessage = msg
-                                                                    }
-                                                                    isDownloading = false
-                                                                    if (res.isSuccess) {
-                                                                        Toast.makeText(context, "Instalasi selesai! Tekan PLAY untuk bermain.", Toast.LENGTH_SHORT).show()
-                                                                    } else {
-                                                                        Toast.makeText(context, "Gagal mengunduh: ${res.exceptionOrNull()?.localizedMessage}", Toast.LENGTH_LONG).show()
-                                                                    }
-                                                                }
-                                                            } else {
-                                                                val targetRuntime = selectedInstance?.let { JavaRuntimeManager.getRecommendedRuntime(it.mcVersion) } ?: "jre-21"
-                                                                if (!JavaRuntimeManager.isRuntimeInstalled(context, targetRuntime)) {
-                                                                    isDownloading = true
-                                                                    downloadTargetName = inst.name
-                                                                    downloadProgress = 0f
-                                                                    downloadMessage = "Menyiapkan OpenJDK (${JavaRuntimeManager.getRuntimeDisplayName(targetRuntime)})..."
-                                                                    scope.launch {
-                                                                        val extRes = JavaRuntimeManager.extractRuntime(context, targetRuntime) { p, msg ->
-                                                                            downloadProgress = p
-                                                                            downloadMessage = msg
-                                                                        }
-                                                                        isDownloading = false
-                                                                        if (extRes.isSuccess) {
-                                                                            Toast.makeText(context, "Meluncurkan ${inst.name}...", Toast.LENGTH_SHORT).show()
-                                                                            GameLauncher.launch(context, inst, account)
-                                                                        } else {
-                                                                            Toast.makeText(context, "Gagal menyiapkan OpenJDK: ${extRes.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
-                                                                        }
-                                                                    }
-                                                                    return@clickable
-                                                                }
-
-                                                                val currentRendererInfo = NuxRendererRegistry.findRendererById(launcherSettings.selectedRenderer)
-                                                                val isSupported = NuxRendererRegistry.isSupportedForVersion(currentRendererInfo, inst.mcVersion)
-                                                                if (!isSupported) {
-                                                                    unsupportedRendererInfo = currentRendererInfo
-                                                                    pendingLaunchInstance = inst
-                                                                } else {
-                                                                    Toast.makeText(context, "Meluncurkan ${inst.name}...", Toast.LENGTH_SHORT).show()
-                                                                    GameLauncher.launch(context, inst, account)
-                                                                }
-                                                            }
-                                                        }
-                                                        .padding(horizontal = (14.dp).resp(), vertical = (9.dp).resp()),
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy((10.dp).resp())
-                                                ) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .size((28.dp).resp())
-                                                            .clip(CircleShape)
-                                                            .background(NuxColors.ForestGreen),
-                                                        contentAlignment = Alignment.Center
-                                                    ) {
-                                                        Icon(
-                                                            imageVector = if (isFullyDownloaded) Icons.Default.PlayArrow else Icons.Default.Download,
-                                                            contentDescription = "Action",
-                                                            tint = Color(0xFF09090B),
-                                                            modifier = Modifier.size((18.dp).resp())
-                                                        )
-                                                    }
-
-                                                    Text(
-                                                        text = if (isFullyDownloaded) "PLAY" else "UNDUH",
-                                                        color = Color.White,
-                                                        fontWeight = FontWeight.Black,
-                                                        fontSize = (13.5.sp).resp(),
-                                                        letterSpacing = (0.8.sp).resp()
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        // EMPTY STATE HERO
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(horizontal = 20.dp, vertical = 14.dp),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Column(
-                                                modifier = Modifier.weight(1f),
-                                                verticalArrangement = Arrangement.Center
+                                            Box(
+                                                modifier = Modifier
+                                                    .size((22.dp).resp())
+                                                    .background(NuxColors.ForestGreen, CircleShape),
+                                                contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
-                                                    text = "MULAI BERMAIN",
-                                                    color = NuxColors.ForestGreen,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 11.sp,
-                                                    letterSpacing = 0.5.sp
-                                                )
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                Text(
-                                                    text = "Belum Ada Instance",
-                                                    color = Color.White,
+                                                    text = initialLetter,
+                                                    color = Color(0xFF09090B),
                                                     fontWeight = FontWeight.Black,
-                                                    fontSize = 18.sp,
-                                                    maxLines = 1
-                                                )
-                                                Spacer(modifier = Modifier.height(2.dp))
-                                                Text(
-                                                    text = "Buat instance Minecraft pertamamu untuk mulai bermain.",
-                                                    color = Color(0xFFA1A1AA),
-                                                    fontSize = 11.sp,
-                                                    maxLines = 2
-                                                )
-                                            }
-
-                                            Spacer(modifier = Modifier.width(12.dp))
-
-                                            NuxButton(
-                                                onClick = { handleRequestCreateInstance() },
-                                                backgroundColor = NuxColors.ForestGreen,
-                                                contentColor = Color.White,
-                                                cornerRadius = 12.dp,
-                                                modifier = Modifier.height(42.dp)
-                                            ) {
-                                                Text(
-                                                    text = "+ BUAT INSTANCE",
-                                                    color = Color.White,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 11.sp,
-                                                    letterSpacing = 0.5.sp
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // 2. 4 QUICK ACTION CARDS (Exact match with PC layout from Image 2)
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(0.95f),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    // Card 1: CHECK FOR UPDATES
-                                    QuickActionCard(
-                                        title = "CHECK FOR\nUPDATES",
-                                        description = if (isCheckingUpdate) "Checking server..." else "Scan launcher patches.",
-                                        icon = Icons.Outlined.Refresh,
-                                        accentColor = NuxColors.ForestGreen,
-                                        onClick = {
-                                            if (isCheckingUpdate) return@QuickActionCard
-                                            isCheckingUpdate = true
-                                            Toast.makeText(context, "Memeriksa pembaruan NUX Launcher...", Toast.LENGTH_SHORT).show()
-                                            scope.launch {
-                                                val result = UpdateManager.checkForUpdate(context)
-                                                isCheckingUpdate = false
-                                                result.onSuccess { info ->
-                                                    if (info.isUpdateAvailable) {
-                                                        updateDialogInfo = info
-                                                    } else {
-                                                        Toast.makeText(context, "NUX Launcher v${info.localVersion} sudah versi terbaru!", Toast.LENGTH_SHORT).show()
-                                                    }
-                                                }.onFailure { err ->
-                                                    Toast.makeText(context, "Gagal cek update: ${err.localizedMessage ?: "Periksa koneksi internet"}", Toast.LENGTH_LONG).show()
-                                                }
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                    )
-
-                                    // Card 2: OPEN GAME FOLDER
-                                    QuickActionCard(
-                                        title = "OPEN GAME\nFOLDER",
-                                        description = "Inspect game directory.",
-                                        icon = Icons.Outlined.Folder,
-                                        accentColor = NuxColors.ForestGreen,
-                                        onClick = {
-                                            selectedInstance?.let { inst ->
-                                                Toast.makeText(context, "Membuka folder instance...", Toast.LENGTH_SHORT).show()
-                                                InstanceManager.openInstanceFolder(context, inst)
-                                            } ?: run {
-                                                Toast.makeText(context, "Pilih instance terlebih dahulu", Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                    )
-
-                                    // Card 3: INSTANCE EDIT
-                                    val activeRuntimeName = selectedInstance?.let {
-                                        if (it.javaRuntime != "auto") it.javaRuntime
-                                        else JavaRuntimeManager.getRecommendedRuntime(it.mcVersion)
-                                    }
-                                    val activeJreDisplay = if (activeRuntimeName != null) {
-                                        if (selectedInstance?.javaRuntime == "auto") "Auto (${activeRuntimeName.replace("jre-", "Java ")})"
-                                        else activeRuntimeName.replace("jre-", "Java ")
-                                    } else "Auto Java"
-                                    QuickActionCard(
-                                        title = "INSTANCE\nEDIT",
-                                        description = selectedInstance?.let { "${it.name} · $activeJreDisplay" } ?: "Pilih instance",
-                                        icon = Icons.Outlined.Tune,
-                                        accentColor = NuxColors.MintGreen,
-                                        onClick = {
-                                            if (selectedInstance != null) {
-                                                showEditInstanceDialog = true
-                                            } else {
-                                                Toast.makeText(context, "Pilih instance terlebih dahulu", Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                    )
-
-                                    // Card 4: DELETE INSTANCE (Rose Red Theme)
-                                    QuickActionCard(
-                                        title = "DELETE\nINSTANCE",
-                                        description = "Erase this instance.",
-                                        icon = Icons.Outlined.DeleteOutline,
-                                        accentColor = Color(0xFFF43F5E),
-                                        isDestructive = true,
-                                        onClick = {
-                                            selectedInstance?.let { inst ->
-                                                instanceToDelete = inst
-                                            } ?: run {
-                                                Toast.makeText(context, "Pilih instance terlebih dahulu", Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                    )
-                                }
-                            }
-
-                            // RIGHT COLUMN: STREAMLINED INSTANCES LIST PANEL
-                            val panelShape = RoundedCornerShape((15.dp).resp())
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .clip(panelShape)
-                                    .background(NuxColors.SurfaceElevated, panelShape)
-                                    .border(1.dp, NuxColors.CardBorder, panelShape)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding((10.dp).resp())
-                                ) {
-                                    // Section Header
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = "INSTANCE (${instances.size})",
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = (11.5.sp).resp(),
-                                            letterSpacing = (0.5.sp).resp()
-                                        )
-
-                                        val addPillShape = RoundedCornerShape((7.dp).resp())
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(addPillShape)
-                                                .background(Color(0xFF10B981).copy(alpha = 0.14f), addPillShape)
-                                                .border(1.dp, NuxColors.ForestGreen.copy(alpha = 0.45f), addPillShape)
-                                                .clickable { handleRequestCreateInstance() }
-                                                .padding(horizontal = (8.dp).resp(), vertical = (3.5.dp).resp())
-                                        ) {
-                                            Text(
-                                                text = "+ TAMBAH",
-                                                color = NuxColors.ForestGreen,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = (9.5.sp).resp()
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height((6.dp).resp()))
-
-                                    // Instance List
-                                    if (instances.isEmpty()) {
-                                        val emptyListShape = RoundedCornerShape((9.dp).resp())
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .weight(1f)
-                                                .clip(emptyListShape)
-                                                .background(Color(0xFF12141A), emptyListShape)
-                                                .border(1.dp, Color(0x14FFFFFF), emptyListShape)
-                                                .padding((10.dp).resp()),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                Text(text = "📦", fontSize = (18.sp).resp())
-                                                Spacer(modifier = Modifier.height((3.dp).resp()))
-                                                Text(
-                                                    text = "Belum Ada Instance",
-                                                    color = Color.White,
-                                                    fontWeight = FontWeight.Bold,
                                                     fontSize = (11.5.sp).resp()
                                                 )
-                                                Spacer(modifier = Modifier.height((2.dp).resp()))
-                                                Text(
-                                                    text = "Klik '+ TAMBAH' untuk membuat.",
-                                                    color = Color(0xFFA1A1AA),
-                                                    fontSize = (9.5.sp).resp()
-                                                )
                                             }
                                         }
-                                    } else {
-                                        LazyColumn(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .weight(1f),
-                                            verticalArrangement = Arrangement.spacedBy((5.dp).resp())
-                                        ) {
-                                            items(instances) { inst ->
-                                                val isSelected = inst.id == selectedInstance?.id
-                                                val itemShape = RoundedCornerShape((9.dp).resp())
-                                                Row(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .clip(itemShape)
-                                                        .background(
-                                                            if (isSelected) Color(0xFF10B981).copy(alpha = 0.12f) else Color(0xFF12141A),
-                                                            itemShape
-                                                        )
-                                                        .border(
-                                                            width = 1.dp,
-                                                            color = if (isSelected) Color(0xFF10B981).copy(alpha = 0.5f) else Color(0x12FFFFFF),
-                                                            shape = itemShape
-                                                        )
-                                                        .clickable { InstanceManager.selectInstance(inst) }
-                                                        .padding(horizontal = (10.dp).resp(), vertical = (6.5.dp).resp()),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    // Streamlined title & metadata
-                                                    Column(modifier = Modifier.weight(1f)) {
-                                                        Text(
-                                                            text = inst.name,
-                                                            color = Color.White,
-                                                            fontWeight = FontWeight.SemiBold,
-                                                            fontSize = (12.5.sp).resp(),
-                                                            maxLines = 1
-                                                        )
-                                                        Spacer(modifier = Modifier.height((1.dp).resp()))
-                                                        Text(
-                                                            text = "v${inst.mcVersion} · ${inst.loader.uppercase()}",
-                                                            color = if (isSelected) NuxColors.ForestGreen else Color(0xFF71717A),
-                                                            fontSize = (9.5.sp).resp(),
-                                                            fontWeight = FontWeight.Medium
-                                                        )
-                                                    }
 
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy((5.dp).resp())
-                                                    ) {
-                                                        if (isSelected) {
-                                                            Box(
-                                                                modifier = Modifier
-                                                                    .size((16.dp).resp())
-                                                                    .background(NuxColors.ForestGreen, CircleShape),
-                                                                contentAlignment = Alignment.Center
-                                                            ) {
+                                        Text(
+                                            text = activeUsername,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = (11.sp).resp(),
+                                            maxLines = 1
+                                        )
+
+                                        Icon(
+                                            imageVector = Icons.Default.KeyboardArrowDown,
+                                            contentDescription = "Ganti Akun",
+                                            tint = Color(0xFFA1A1AA),
+                                            modifier = Modifier.size((16.dp).resp())
+                                        )
+                                    }
+
+                                    DropdownMenu(
+                                        expanded = isAccountDropdownExpanded,
+                                        onDismissRequest = { isAccountDropdownExpanded = false },
+                                        modifier = Modifier
+                                            .widthIn(min = (200.dp).resp())
+                                            .background(Color(0xFF14171E))
+                                            .border(1.dp, NuxColors.CardBorder, RoundedCornerShape((10.dp).resp()))
+                                    ) {
+                                        if (accounts.isEmpty()) {
+                                            DropdownMenuItem(
+                                                text = { Text("Belum ada akun", color = Color(0xFFA1A1AA), fontSize = (11.sp).resp()) },
+                                                onClick = { }
+                                            )
+                                        } else {
+                                            accounts.forEach { acc ->
+                                                val isSelected = acc.id == currentAccount?.id
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Text(
+                                                                text = acc.username,
+                                                                color = if (isSelected) NuxColors.MintGreen else Color.White,
+                                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                                fontSize = (12.sp).resp()
+                                                            )
+                                                            if (isSelected) {
                                                                 Icon(
                                                                     imageVector = Icons.Default.Check,
                                                                     contentDescription = "Selected",
-                                                                    tint = Color(0xFF09090B),
-                                                                    modifier = Modifier.size((11.dp).resp())
+                                                                    tint = NuxColors.ForestGreen,
+                                                                    modifier = Modifier.size((16.dp).resp())
                                                                 )
                                                             }
                                                         }
+                                                    },
+                                                    onClick = {
+                                                        AccountManager.selectAccount(acc)
+                                                        isAccountDropdownExpanded = false
+                                                    }
+                                                )
+                                            }
+                                        }
 
-                                                        // Minimalist subtle ghost trash button
-                                                        Box(
-                                                            modifier = Modifier
-                                                                .size((22.dp).resp())
-                                                                .clip(RoundedCornerShape((6.dp).resp()))
-                                                                .clickable { instanceToDelete = inst },
-                                                            contentAlignment = Alignment.Center
-                                                        ) {
-                                                            Icon(
-                                                                imageVector = Icons.Outlined.DeleteOutline,
-                                                                contentDescription = "Delete",
-                                                                tint = Color(0xFF71717A),
-                                                                modifier = Modifier.size((14.dp).resp())
-                                                            )
-                                                        }
+                                        HorizontalDivider(color = Color(0x26FFFFFF), thickness = 1.dp)
+
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    text = "+ Kelola Akun",
+                                                    color = NuxColors.ForestGreen,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = (12.sp).resp()
+                                                )
+                                            },
+                                            onClick = {
+                                                isAccountDropdownExpanded = false
+                                                currentTab = "accounts"
+                                            }
+                                        )
+                                    }
+                                }
+
+                                // Top-Right: Unofficial Modified Version badge + Instant Image Picker Button
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy((8.dp).resp())
+                                ) {
+                                    val badgeShape = RoundedCornerShape((14.dp).resp())
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(badgeShape)
+                                            .background(Color(0xD90D0F14), badgeShape)
+                                            .border(1.dp, Color(0x33FFFFFF), badgeShape)
+                                            .clickable { showAboutDialog = true }
+                                            .padding(horizontal = (9.dp).resp(), vertical = (4.5.dp).resp()),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy((5.dp).resp())
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size((5.5.dp).resp())
+                                                    .background(NuxColors.Amber, CircleShape)
+                                            )
+                                            Text(
+                                                text = "UNOFFICIAL MODIFIED VERSION",
+                                                color = Color(0xFFD4D4D8),
+                                                fontSize = (8.5.sp).resp(),
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = (0.5.sp).resp()
+                                            )
+                                            Icon(
+                                                imageVector = Icons.Outlined.Info,
+                                                contentDescription = "Tentang & Lisensi",
+                                                tint = Color(0xFFA1A1AA),
+                                                modifier = Modifier.size((11.5.dp).resp())
+                                            )
+                                        }
+                                    }
+
+                                    // Button to change background animation instantly
+                                    val imgBtnShape = RoundedCornerShape((10.dp).resp())
+                                    Box(
+                                        modifier = Modifier
+                                            .size((30.dp).resp())
+                                            .clip(imgBtnShape)
+                                            .background(Color(0xD90D0F14), imgBtnShape)
+                                            .border(1.dp, Color(0x33FFFFFF), imgBtnShape)
+                                            .clickable {
+                                                videoPickerLauncher.launch("video/*")
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Image,
+                                            contentDescription = "Ganti Animasi Background",
+                                            tint = Color.White,
+                                            modifier = Modifier.size((16.dp).resp())
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 4. FLOATING BOTTOM LAUNCH BAR
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = (14.dp).resp(), vertical = (12.dp).resp())
+                            ) {
+                                val launchBarShape = RoundedCornerShape((20.dp).resp())
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(launchBarShape)
+                                        .background(Color(0xEE12141A), launchBarShape)
+                                        .border(1.dp, Color(0x33FFFFFF), launchBarShape)
+                                        .padding(horizontal = (12.dp).resp(), vertical = (8.dp).resp()),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Instance Index Box "1" (In Nux Green! Was yellow in screenshot)
+                                    val instanceIndex = if (selectedInstance != null) {
+                                        (instances.indexOfFirst { it.id == selectedInstance!!.id }.takeIf { it >= 0 } ?: 0) + 1
+                                    } else {
+                                        1
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size((40.dp).resp())
+                                            .background(NuxColors.ForestGreen, RoundedCornerShape((12.dp).resp())),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "$instanceIndex",
+                                            color = Color(0xFF09090B),
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = (16.sp).resp()
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width((10.dp).resp()))
+
+                                    // Version Section (Clickable to open dropdown)
+                                    Box(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape((8.dp).resp()))
+                                                .clickable { isVersionDropdownExpanded = true }
+                                                .padding(horizontal = (4.dp).resp(), vertical = (2.dp).resp())
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = selectedInstance?.name ?: "Pilih / Buat Instance",
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = (15.sp).resp(),
+                                                    letterSpacing = (-0.2).sp,
+                                                    maxLines = 1
+                                                )
+                                                Spacer(modifier = Modifier.width((6.dp).resp()))
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size((18.dp).resp())
+                                                        .background(Color(0x33FFFFFF), CircleShape),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                                        contentDescription = "Pilih Versi",
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size((14.dp).resp())
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height((3.dp).resp()))
+
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy((5.dp).resp()),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                if (selectedInstance != null) {
+                                                    val inst = selectedInstance!!
+                                                    // Loader tag (in NUX green! Was yellow in screenshot)
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(NuxColors.ForestGreen, RoundedCornerShape((6.dp).resp()))
+                                                            .padding(horizontal = (6.dp).resp(), vertical = (1.5.dp).resp())
+                                                    ) {
+                                                        Text(
+                                                            text = inst.loader.replaceFirstChar { it.uppercase() },
+                                                            color = Color(0xFF09090B),
+                                                            fontWeight = FontWeight.Black,
+                                                            fontSize = (9.sp).resp()
+                                                        )
+                                                    }
+
+                                                    // Version tag
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(Color(0x2EFFFFFF), RoundedCornerShape((6.dp).resp()))
+                                                            .padding(horizontal = (6.dp).resp(), vertical = (1.5.dp).resp())
+                                                    ) {
+                                                        Text(
+                                                            text = inst.mcVersion,
+                                                            color = Color.White,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            fontSize = (9.sp).resp()
+                                                        )
+                                                    }
+
+                                                    // Java runtime tag
+                                                    val activeRuntime = if (inst.javaRuntime != "auto") inst.javaRuntime
+                                                        else JavaRuntimeManager.getRecommendedRuntime(inst.mcVersion)
+                                                    val jreLabel = activeRuntime.replace("jre-", "Java ")
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(Color(0x2EFFFFFF), RoundedCornerShape((6.dp).resp()))
+                                                            .padding(horizontal = (6.dp).resp(), vertical = (1.5.dp).resp())
+                                                    ) {
+                                                        Text(
+                                                            text = jreLabel,
+                                                            color = Color.White,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            fontSize = (9.sp).resp()
+                                                        )
+                                                    }
+                                                } else {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(Color(0x2EFFFFFF), RoundedCornerShape((6.dp).resp()))
+                                                            .padding(horizontal = (6.dp).resp(), vertical = (1.5.dp).resp())
+                                                    ) {
+                                                        Text(
+                                                            text = "Belum Ada Versi",
+                                                            color = Color.White,
+                                                            fontSize = (9.sp).resp()
+                                                        )
                                                     }
                                                 }
                                             }
                                         }
+
+                                        // Dropdown Menu for Installed Versions + Add new instance
+                                        DropdownMenu(
+                                            expanded = isVersionDropdownExpanded,
+                                            onDismissRequest = { isVersionDropdownExpanded = false },
+                                            modifier = Modifier
+                                                .widthIn(min = (240.dp).resp(), max = (320.dp).resp())
+                                                .background(Color(0xFF14171E))
+                                                .border(1.dp, NuxColors.CardBorder, RoundedCornerShape((10.dp).resp()))
+                                        ) {
+                                            if (instances.isEmpty()) {
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text(
+                                                            text = "Tidak ada instance yang terinstall",
+                                                            color = Color(0xFFA1A1AA),
+                                                            fontSize = (11.sp).resp()
+                                                        )
+                                                    },
+                                                    onClick = { }
+                                                )
+                                            } else {
+                                                instances.forEach { inst ->
+                                                    val isSelected = inst.id == selectedInstance?.id
+                                                    DropdownMenuItem(
+                                                        text = {
+                                                            Row(
+                                                                modifier = Modifier.fillMaxWidth(),
+                                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                                verticalAlignment = Alignment.CenterVertically
+                                                            ) {
+                                                                Column(modifier = Modifier.weight(1f)) {
+                                                                    Text(
+                                                                        text = inst.name,
+                                                                        color = if (isSelected) NuxColors.MintGreen else Color.White,
+                                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                                                        fontSize = (12.sp).resp(),
+                                                                        maxLines = 1
+                                                                    )
+                                                                    Text(
+                                                                        text = "${inst.loader.uppercase()} • ${inst.mcVersion}",
+                                                                        color = Color(0xFFA1A1AA),
+                                                                        fontSize = (9.5.sp).resp()
+                                                                    )
+                                                                }
+                                                                if (isSelected) {
+                                                                    Icon(
+                                                                        imageVector = Icons.Default.Check,
+                                                                        contentDescription = "Selected",
+                                                                        tint = NuxColors.ForestGreen,
+                                                                        modifier = Modifier.size((16.dp).resp())
+                                                                    )
+                                                                }
+                                                            }
+                                                        },
+                                                        onClick = {
+                                                            InstanceManager.selectInstance(inst)
+                                                            isVersionDropdownExpanded = false
+                                                        }
+                                                    )
+                                                }
+                                            }
+
+                                            HorizontalDivider(color = Color(0x26FFFFFF), thickness = 1.dp)
+
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy((8.dp).resp())
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Add,
+                                                            contentDescription = "Add",
+                                                            tint = NuxColors.ForestGreen,
+                                                            modifier = Modifier.size((18.dp).resp())
+                                                        )
+                                                        Text(
+                                                            text = "Add new instance",
+                                                            color = NuxColors.ForestGreen,
+                                                            fontWeight = FontWeight.Bold,
+                                                            fontSize = (12.5.sp).resp()
+                                                        )
+                                                    }
+                                                },
+                                                onClick = {
+                                                    isVersionDropdownExpanded = false
+                                                    handleRequestCreateInstance()
+                                                }
+                                            )
+                                        }
+                                    }
+
+                                    // Big PLAY Button (In Nux Green! Was yellow in screenshot)
+                                    val inst = selectedInstance
+                                    val isFullyDownloaded = inst != null && inst.isDownloaded && InstanceManager.isInstanceDownloaded(context, inst)
+                                    val playBtnShape = RoundedCornerShape((16.dp).resp())
+
+                                    Row(
+                                        modifier = Modifier
+                                            .clip(playBtnShape)
+                                            .background(NuxColors.ForestGreen, playBtnShape)
+                                            .clickable {
+                                                if (inst == null) {
+                                                    handleRequestCreateInstance()
+                                                    return@clickable
+                                                }
+
+                                                val account = currentAccount
+                                                if (account == null) {
+                                                    Toast.makeText(context, "Silakan buat atau pilih akun terlebih dahulu!", Toast.LENGTH_SHORT).show()
+                                                    currentTab = "accounts"
+                                                    return@clickable
+                                                }
+
+                                                if (!isFullyDownloaded) {
+                                                    val targetRuntime = JavaRuntimeManager.getRecommendedRuntime(inst.mcVersion)
+                                                    isDownloading = true
+                                                    downloadTargetName = inst.name
+                                                    downloadProgress = 0f
+                                                    downloadMessage = "Menyiapkan OpenJDK (${JavaRuntimeManager.getRuntimeDisplayName(targetRuntime)})..."
+
+                                                    scope.launch {
+                                                        JavaRuntimeManager.extractRuntime(context, targetRuntime) { p, msg ->
+                                                            downloadProgress = p
+                                                            downloadMessage = msg
+                                                        }
+
+                                                        val res = downloader.downloadInstance(inst) { p, msg ->
+                                                            downloadProgress = p
+                                                            downloadMessage = msg
+                                                        }
+                                                        isDownloading = false
+                                                        if (res.isSuccess) {
+                                                            Toast.makeText(context, "Instalasi selesai! Tekan PLAY untuk bermain.", Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            Toast.makeText(context, "Gagal mengunduh: ${res.exceptionOrNull()?.localizedMessage}", Toast.LENGTH_LONG).show()
+                                                        }
+                                                    }
+                                                } else {
+                                                    val targetRuntime = selectedInstance?.let { JavaRuntimeManager.getRecommendedRuntime(it.mcVersion) } ?: "jre-21"
+                                                    if (!JavaRuntimeManager.isRuntimeInstalled(context, targetRuntime)) {
+                                                        isDownloading = true
+                                                        downloadTargetName = inst.name
+                                                        downloadProgress = 0f
+                                                        downloadMessage = "Menyiapkan OpenJDK (${JavaRuntimeManager.getRuntimeDisplayName(targetRuntime)})..."
+                                                        scope.launch {
+                                                            val extRes = JavaRuntimeManager.extractRuntime(context, targetRuntime) { p, msg ->
+                                                                downloadProgress = p
+                                                                downloadMessage = msg
+                                                            }
+                                                            isDownloading = false
+                                                            if (extRes.isSuccess) {
+                                                                Toast.makeText(context, "Meluncurkan ${inst.name}...", Toast.LENGTH_SHORT).show()
+                                                                GameLauncher.launch(context, inst, account)
+                                                            } else {
+                                                                Toast.makeText(context, "Gagal menyiapkan OpenJDK: ${extRes.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                                                            }
+                                                        }
+                                                        return@clickable
+                                                    }
+
+                                                    val currentRendererInfo = NuxRendererRegistry.findRendererById(launcherSettings.selectedRenderer)
+                                                    val isSupported = NuxRendererRegistry.isSupportedForVersion(currentRendererInfo, inst.mcVersion)
+                                                    if (!isSupported) {
+                                                        unsupportedRendererInfo = currentRendererInfo
+                                                        pendingLaunchInstance = inst
+                                                    } else {
+                                                        Toast.makeText(context, "Meluncurkan ${inst.name}...", Toast.LENGTH_SHORT).show()
+                                                        GameLauncher.launch(context, inst, account)
+                                                    }
+                                                }
+                                            }
+                                            .padding(horizontal = (24.dp).resp(), vertical = (11.dp).resp()),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy((6.dp).resp())
+                                    ) {
+                                        Icon(
+                                            imageVector = if (inst == null) Icons.Default.Add else if (isFullyDownloaded) Icons.Default.PlayArrow else Icons.Default.Download,
+                                            contentDescription = "Action",
+                                            tint = Color(0xFF09090B),
+                                            modifier = Modifier.size((18.dp).resp())
+                                        )
+                                        Text(
+                                            text = if (inst == null) "NEW INSTANCE" else if (isFullyDownloaded) "PLAY" else "UNDUH",
+                                            color = Color(0xFF09090B),
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = (15.sp).resp(),
+                                            letterSpacing = (0.5.sp).resp()
+                                        )
                                     }
                                 }
                             }
