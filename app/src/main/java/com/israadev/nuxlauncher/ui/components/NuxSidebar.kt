@@ -47,7 +47,7 @@ val NUX_NAV_ITEMS = listOf(
 )
 
 /**
- * NUX Cyber-Emerald Sidebar matching reference screenshot
+ * NUX Black Sidebar with right-side radius and flush left side, matching reference screenshot
  */
 @Composable
 fun NuxSidebar(
@@ -59,11 +59,19 @@ fun NuxSidebar(
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
+    val sidebarShape = RoundedCornerShape(
+        topStart = 0.dp,
+        bottomStart = 0.dp,
+        topEnd = (24.dp).resp(),
+        bottomEnd = (24.dp).resp()
+    )
 
     Column(
         modifier = modifier
             .fillMaxHeight()
-            .padding(vertical = (6.dp).resp()),
+            .clip(sidebarShape)
+            .background(Color(0xFF101216), sidebarShape)
+            .padding(top = (10.dp).resp(), bottom = (10.dp).resp(), start = (6.dp).resp(), end = (6.dp).resp()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
@@ -71,17 +79,17 @@ fun NuxSidebar(
         val logoShape = RoundedCornerShape((10.dp).resp())
         Box(
             modifier = Modifier
-                .size((34.dp).resp())
+                .size((36.dp).resp())
                 .clip(logoShape)
-                .background(Color(0xFF09090B))
-                .border(1.dp, Color(0x33000000), logoShape)
+                .background(Color(0xFF181A20))
+                .border(1.dp, Color(0x26FFFFFF), logoShape)
                 .clickable { onTabSelected("home") },
             contentAlignment = Alignment.Center
         ) {
             Image(
                 painter = painterResource(id = R.drawable.nux_icon),
                 contentDescription = "NUX Logo",
-                modifier = Modifier.size((22.dp).resp())
+                modifier = Modifier.size((24.dp).resp())
             )
         }
 
@@ -92,49 +100,44 @@ fun NuxSidebar(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy((6.dp).resp()),
+            verticalArrangement = Arrangement.spacedBy((8.dp).resp()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             NUX_NAV_ITEMS.forEach { item ->
                 val isSelected = activeTab == item.id
-                val shape = RoundedCornerShape((12.dp).resp())
+                val pillShape = RoundedCornerShape((14.dp).resp())
 
                 Column(
                     modifier = Modifier
-                        .clip(RoundedCornerShape((8.dp).resp()))
+                        .clip(RoundedCornerShape((10.dp).resp()))
                         .clickable { onTabSelected(item.id) }
                         .padding(horizontal = (2.dp).resp(), vertical = (2.dp).resp()),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(width = (40.dp).resp(), height = (25.dp).resp())
+                            .size(width = (44.dp).resp(), height = (26.dp).resp())
                             .background(
-                                color = if (isSelected) Color(0xFF09090B) else Color.Transparent,
-                                shape = shape
+                                color = if (isSelected) NuxColors.ForestGreen else Color.Transparent,
+                                shape = pillShape
                             )
-                            .border(
-                                width = 1.dp,
-                                color = if (isSelected) Color(0x33000000) else Color.Transparent,
-                                shape = shape
-                            )
-                            .clip(shape),
+                            .clip(pillShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = item.icon,
                             contentDescription = item.label,
-                            tint = if (isSelected) NuxColors.ForestGreen else Color(0xFF09090B).copy(alpha = 0.85f),
-                            modifier = Modifier.size((16.dp).resp())
+                            tint = if (isSelected) Color(0xFF09090B) else Color(0xFFA1A1AA),
+                            modifier = Modifier.size((17.dp).resp())
                         )
                     }
 
-                    Spacer(modifier = Modifier.height((2.dp).resp()))
+                    Spacer(modifier = Modifier.height((3.dp).resp()))
 
                     Text(
                         text = item.label,
-                        color = Color(0xFF09090B),
-                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                        color = if (isSelected) NuxColors.ForestGreen else Color(0xFFA1A1AA),
+                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium,
                         fontSize = (8.5.sp).resp(),
                         maxLines = 1
                     )
@@ -142,23 +145,23 @@ fun NuxSidebar(
             }
         }
 
-        Spacer(modifier = Modifier.height((4.dp).resp()))
+        Spacer(modifier = Modifier.height((6.dp).resp()))
 
         // BOTTOM: INFO (i) ICON
         Box(
             modifier = Modifier
-                .size((26.dp).resp())
+                .size((28.dp).resp())
                 .clip(CircleShape)
-                .background(Color(0xFF09090B).copy(alpha = 0.14f))
-                .border(1.dp, Color(0xFF09090B).copy(alpha = 0.35f), CircleShape)
+                .background(Color(0xFF181A20))
+                .border(1.dp, Color(0x33FFFFFF), CircleShape)
                 .clickable { onOpenAbout() },
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Outlined.Info,
                 contentDescription = "Tentang & Lisensi",
-                tint = Color(0xFF09090B),
-                modifier = Modifier.size((14.dp).resp())
+                tint = Color(0xFFA1A1AA),
+                modifier = Modifier.size((15.dp).resp())
             )
         }
     }

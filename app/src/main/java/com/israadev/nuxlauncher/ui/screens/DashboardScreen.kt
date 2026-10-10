@@ -7,6 +7,7 @@ import java.io.FileOutputStream
 import kotlin.math.roundToInt
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -181,18 +182,17 @@ fun DashboardScreen() {
             modifier = Modifier.fillMaxSize()
         )
     } else {
-        // Outer Container: NUX Launcher Cyber-Emerald Green (Changed from yellow in screenshot)
+        // Outer Container: NUX Launcher Cyber-Emerald Green space
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(NuxColors.ForestGreen)
-                .padding(all = (6.dp).resp())
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // --- 1. LEFT SIDEBAR ---
+                // --- 1. LEFT SIDEBAR (FLUSH TO LEFT SCREEN EDGE, ROUNDED ON RIGHT) ---
                 NuxSidebar(
                     activeTab = currentTab,
                     onTabSelected = { tabId ->
@@ -206,18 +206,20 @@ fun DashboardScreen() {
                     currentAccount = currentAccount,
                     launcherUser = launcherUser,
                     modifier = Modifier
-                        .width((52.dp).resp())
+                        .width((64.dp).resp())
                         .fillMaxHeight()
                 )
 
-                Spacer(modifier = Modifier.width((6.dp).resp()))
+                // Space between sidebar and main card (Nux green gap)
+                Spacer(modifier = Modifier.width((8.dp).resp()))
 
-                // --- 2. MAIN CARD ---
-                val mainCardShape = RoundedCornerShape((22.dp).resp())
+                // --- 2. MAIN CARD (SURROUNDED BY GREEN ON TOP, END, BOTTOM) ---
+                val mainCardShape = RoundedCornerShape((24.dp).resp())
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
+                        .padding(top = (8.dp).resp(), bottom = (8.dp).resp(), end = (8.dp).resp())
                         .clip(mainCardShape)
                         .background(Color(0xFF09090B), mainCardShape)
                         .border(2.dp, Color(0xFF14171E), mainCardShape)
@@ -299,12 +301,12 @@ fun DashboardScreen() {
                                     )
                             )
 
-                            // 3. TOP BAR INSIDE MAIN CARD
+                            // 3. TOP BAR INSIDE MAIN CARD (Frosted Glass Blur Items)
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .align(Alignment.TopCenter)
-                                    .padding(horizontal = (14.dp).resp(), vertical = (10.dp).resp()),
+                                    .padding(horizontal = (16.dp).resp(), vertical = (12.dp).resp()),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -314,14 +316,25 @@ fun DashboardScreen() {
                                 val initialLetter = activeUsername.firstOrNull()?.uppercase() ?: "U"
 
                                 Box {
-                                    val accPillShape = RoundedCornerShape((18.dp).resp())
+                                    val accPillShape = RoundedCornerShape((20.dp).resp())
                                     Row(
                                         modifier = Modifier
                                             .clip(accPillShape)
-                                            .background(Color(0xD90D0F14), accPillShape)
-                                            .border(1.dp, Color(0x33FFFFFF), accPillShape)
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(Color(0xA6181B22), Color(0xBF0E1015))
+                                                ),
+                                                accPillShape
+                                            )
+                                            .border(
+                                                1.dp,
+                                                Brush.verticalGradient(
+                                                    listOf(Color(0x66FFFFFF), Color(0x1F000000))
+                                                ),
+                                                accPillShape
+                                            )
                                             .clickable { isAccountDropdownExpanded = true }
-                                            .padding(horizontal = (6.dp).resp(), vertical = (4.dp).resp()),
+                                            .padding(horizontal = (8.dp).resp(), vertical = (5.dp).resp()),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy((8.dp).resp())
                                     ) {
@@ -366,13 +379,15 @@ fun DashboardScreen() {
                                         )
                                     }
 
+                                    // Account Dropdown with proper rounded corners and frosted glass
                                     DropdownMenu(
                                         expanded = isAccountDropdownExpanded,
                                         onDismissRequest = { isAccountDropdownExpanded = false },
-                                        modifier = Modifier
-                                            .widthIn(min = (200.dp).resp())
-                                            .background(Color(0xFF14171E))
-                                            .border(1.dp, NuxColors.CardBorder, RoundedCornerShape((10.dp).resp()))
+                                        shape = RoundedCornerShape((18.dp).resp()),
+                                        containerColor = Color(0xF212141C),
+                                        shadowElevation = (16.dp).resp(),
+                                        border = BorderStroke(1.dp, Color(0x33FFFFFF)),
+                                        modifier = Modifier.widthIn(min = (210.dp).resp())
                                     ) {
                                         if (accounts.isEmpty()) {
                                             DropdownMenuItem(
@@ -432,19 +447,30 @@ fun DashboardScreen() {
                                     }
                                 }
 
-                                // Top-Right: Unofficial Modified Version badge + Instant Image Picker Button
+                                // Top-Right: Frosted Glass Badges
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy((8.dp).resp())
                                 ) {
-                                    val badgeShape = RoundedCornerShape((14.dp).resp())
+                                    val badgeShape = RoundedCornerShape((16.dp).resp())
                                     Box(
                                         modifier = Modifier
                                             .clip(badgeShape)
-                                            .background(Color(0xD90D0F14), badgeShape)
-                                            .border(1.dp, Color(0x33FFFFFF), badgeShape)
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(Color(0xA6181B22), Color(0xBF0E1015))
+                                                ),
+                                                badgeShape
+                                            )
+                                            .border(
+                                                1.dp,
+                                                Brush.verticalGradient(
+                                                    listOf(Color(0x66FFFFFF), Color(0x1F000000))
+                                                ),
+                                                badgeShape
+                                            )
                                             .clickable { showAboutDialog = true }
-                                            .padding(horizontal = (9.dp).resp(), vertical = (4.5.dp).resp()),
+                                            .padding(horizontal = (10.dp).resp(), vertical = (5.5.dp).resp()),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Row(
@@ -473,13 +499,24 @@ fun DashboardScreen() {
                                     }
 
                                     // Button to change background animation instantly
-                                    val imgBtnShape = RoundedCornerShape((10.dp).resp())
+                                    val imgBtnShape = RoundedCornerShape((12.dp).resp())
                                     Box(
                                         modifier = Modifier
-                                            .size((30.dp).resp())
+                                            .size((32.dp).resp())
                                             .clip(imgBtnShape)
-                                            .background(Color(0xD90D0F14), imgBtnShape)
-                                            .border(1.dp, Color(0x33FFFFFF), imgBtnShape)
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(Color(0xA6181B22), Color(0xBF0E1015))
+                                                ),
+                                                imgBtnShape
+                                            )
+                                            .border(
+                                                1.dp,
+                                                Brush.verticalGradient(
+                                                    listOf(Color(0x66FFFFFF), Color(0x1F000000))
+                                                ),
+                                                imgBtnShape
+                                            )
                                             .clickable {
                                                 videoPickerLauncher.launch("video/*")
                                             },
@@ -489,50 +526,63 @@ fun DashboardScreen() {
                                             imageVector = Icons.Outlined.Image,
                                             contentDescription = "Ganti Animasi Background",
                                             tint = Color.White,
-                                            modifier = Modifier.size((16.dp).resp())
+                                            modifier = Modifier.size((17.dp).resp())
                                         )
                                     }
                                 }
                             }
 
-                            // 4. FLOATING BOTTOM LAUNCH BAR
+                            // 4. FLOATING BOTTOM LAUNCH BAR (Frosted Glass Capsule matching Image 3)
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .fillMaxWidth()
-                                    .padding(horizontal = (14.dp).resp(), vertical = (12.dp).resp())
+                                    .padding(horizontal = (16.dp).resp(), vertical = (12.dp).resp())
                             ) {
-                                val launchBarShape = RoundedCornerShape((20.dp).resp())
+                                val launchBarShape = RoundedCornerShape((32.dp).resp())
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(launchBarShape)
-                                        .background(Color(0xEE12141A), launchBarShape)
-                                        .border(1.dp, Color(0x33FFFFFF), launchBarShape)
+                                        .background(
+                                            Brush.verticalGradient(
+                                                listOf(Color(0xB3181B22), Color(0xCC0E1015))
+                                            ),
+                                            launchBarShape
+                                        )
+                                        .border(
+                                            1.dp,
+                                            Brush.verticalGradient(
+                                                listOf(Color(0x66FFFFFF), Color(0x1F000000))
+                                            ),
+                                            launchBarShape
+                                        )
                                         .padding(horizontal = (12.dp).resp(), vertical = (8.dp).resp()),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    // Instance Index Box "1" (In Nux Green! Was yellow in screenshot)
+                                    // Instance Index Box "1" (In Nux Green, rounded square matching Image 3)
                                     val instanceIndex = if (selectedInstance != null) {
                                         (instances.indexOfFirst { it.id == selectedInstance!!.id }.takeIf { it >= 0 } ?: 0) + 1
                                     } else {
                                         1
                                     }
+                                    val numBoxShape = RoundedCornerShape((16.dp).resp())
                                     Box(
                                         modifier = Modifier
-                                            .size((40.dp).resp())
-                                            .background(NuxColors.ForestGreen, RoundedCornerShape((12.dp).resp())),
+                                            .size((44.dp).resp())
+                                            .background(NuxColors.ForestGreen, numBoxShape)
+                                            .clip(numBoxShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = "$instanceIndex",
                                             color = Color(0xFF09090B),
                                             fontWeight = FontWeight.Black,
-                                            fontSize = (16.sp).resp()
+                                            fontSize = (17.sp).resp()
                                         )
                                     }
 
-                                    Spacer(modifier = Modifier.width((10.dp).resp()))
+                                    Spacer(modifier = Modifier.width((12.dp).resp()))
 
                                     // Version Section (Clickable to open dropdown)
                                     Box(
@@ -551,7 +601,7 @@ fun DashboardScreen() {
                                                     text = selectedInstance?.name ?: "Pilih / Buat Instance",
                                                     color = Color.White,
                                                     fontWeight = FontWeight.Black,
-                                                    fontSize = (15.sp).resp(),
+                                                    fontSize = (15.5.sp).resp(),
                                                     letterSpacing = (-0.2).sp,
                                                     maxLines = 1
                                                 )
@@ -582,28 +632,29 @@ fun DashboardScreen() {
                                                     // Loader tag (in NUX green! Was yellow in screenshot)
                                                     Box(
                                                         modifier = Modifier
-                                                            .background(NuxColors.ForestGreen, RoundedCornerShape((6.dp).resp()))
-                                                            .padding(horizontal = (6.dp).resp(), vertical = (1.5.dp).resp())
+                                                            .background(NuxColors.ForestGreen, RoundedCornerShape((8.dp).resp()))
+                                                            .padding(horizontal = (7.dp).resp(), vertical = (2.dp).resp())
                                                     ) {
                                                         Text(
                                                             text = inst.loader.replaceFirstChar { it.uppercase() },
                                                             color = Color(0xFF09090B),
                                                             fontWeight = FontWeight.Black,
-                                                            fontSize = (9.sp).resp()
+                                                            fontSize = (9.5.sp).resp()
                                                         )
                                                     }
 
                                                     // Version tag
                                                     Box(
                                                         modifier = Modifier
-                                                            .background(Color(0x2EFFFFFF), RoundedCornerShape((6.dp).resp()))
-                                                            .padding(horizontal = (6.dp).resp(), vertical = (1.5.dp).resp())
+                                                            .background(Color(0x2EFFFFFF), RoundedCornerShape((8.dp).resp()))
+                                                            .border(1.dp, Color(0x26FFFFFF), RoundedCornerShape((8.dp).resp()))
+                                                            .padding(horizontal = (7.dp).resp(), vertical = (2.dp).resp())
                                                     ) {
                                                         Text(
                                                             text = inst.mcVersion,
                                                             color = Color.White,
                                                             fontWeight = FontWeight.SemiBold,
-                                                            fontSize = (9.sp).resp()
+                                                            fontSize = (9.5.sp).resp()
                                                         )
                                                     }
 
@@ -613,40 +664,42 @@ fun DashboardScreen() {
                                                     val jreLabel = activeRuntime.replace("jre-", "Java ")
                                                     Box(
                                                         modifier = Modifier
-                                                            .background(Color(0x2EFFFFFF), RoundedCornerShape((6.dp).resp()))
-                                                            .padding(horizontal = (6.dp).resp(), vertical = (1.5.dp).resp())
+                                                            .background(Color(0x2EFFFFFF), RoundedCornerShape((8.dp).resp()))
+                                                            .border(1.dp, Color(0x26FFFFFF), RoundedCornerShape((8.dp).resp()))
+                                                            .padding(horizontal = (7.dp).resp(), vertical = (2.dp).resp())
                                                     ) {
                                                         Text(
                                                             text = jreLabel,
                                                             color = Color.White,
                                                             fontWeight = FontWeight.SemiBold,
-                                                            fontSize = (9.sp).resp()
+                                                            fontSize = (9.5.sp).resp()
                                                         )
                                                     }
                                                 } else {
                                                     Box(
                                                         modifier = Modifier
-                                                            .background(Color(0x2EFFFFFF), RoundedCornerShape((6.dp).resp()))
-                                                            .padding(horizontal = (6.dp).resp(), vertical = (1.5.dp).resp())
+                                                            .background(Color(0x2EFFFFFF), RoundedCornerShape((8.dp).resp()))
+                                                            .padding(horizontal = (7.dp).resp(), vertical = (2.dp).resp())
                                                     ) {
                                                         Text(
                                                             text = "Belum Ada Versi",
                                                             color = Color.White,
-                                                            fontSize = (9.sp).resp()
+                                                            fontSize = (9.5.sp).resp()
                                                         )
                                                     }
                                                 }
                                             }
                                         }
 
-                                        // Dropdown Menu for Installed Versions + Add new instance
+                                        // Dropdown Menu for Installed Versions (With proper rounded shape & blur)
                                         DropdownMenu(
                                             expanded = isVersionDropdownExpanded,
                                             onDismissRequest = { isVersionDropdownExpanded = false },
-                                            modifier = Modifier
-                                                .widthIn(min = (240.dp).resp(), max = (320.dp).resp())
-                                                .background(Color(0xFF14171E))
-                                                .border(1.dp, NuxColors.CardBorder, RoundedCornerShape((10.dp).resp()))
+                                            shape = RoundedCornerShape((18.dp).resp()),
+                                            containerColor = Color(0xF212141C),
+                                            shadowElevation = (16.dp).resp(),
+                                            border = BorderStroke(1.dp, Color(0x33FFFFFF)),
+                                            modifier = Modifier.widthIn(min = (250.dp).resp(), max = (330.dp).resp())
                                         ) {
                                             if (instances.isEmpty()) {
                                                 DropdownMenuItem(
@@ -734,7 +787,7 @@ fun DashboardScreen() {
                                     // Big PLAY Button (In Nux Green! Was yellow in screenshot)
                                     val inst = selectedInstance
                                     val isFullyDownloaded = inst != null && inst.isDownloaded && InstanceManager.isInstanceDownloaded(context, inst)
-                                    val playBtnShape = RoundedCornerShape((16.dp).resp())
+                                    val playBtnShape = RoundedCornerShape((24.dp).resp())
 
                                     Row(
                                         modifier = Modifier
@@ -811,7 +864,7 @@ fun DashboardScreen() {
                                                     }
                                                 }
                                             }
-                                            .padding(horizontal = (24.dp).resp(), vertical = (11.dp).resp()),
+                                            .padding(horizontal = (26.dp).resp(), vertical = (12.dp).resp()),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy((6.dp).resp())
                                     ) {
@@ -819,7 +872,7 @@ fun DashboardScreen() {
                                             imageVector = if (inst == null) Icons.Default.Add else if (isFullyDownloaded) Icons.Default.PlayArrow else Icons.Default.Download,
                                             contentDescription = "Action",
                                             tint = Color(0xFF09090B),
-                                            modifier = Modifier.size((18.dp).resp())
+                                            modifier = Modifier.size((20.dp).resp())
                                         )
                                         Text(
                                             text = if (inst == null) "NEW INSTANCE" else if (isFullyDownloaded) "PLAY" else "UNDUH",
@@ -842,7 +895,7 @@ fun DashboardScreen() {
                     onOpenVoiceRoom = { currentTab = "friends" },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(top = 8.dp, end = 12.dp)
+                        .padding(top = (14.dp).resp(), end = (18.dp).resp())
                 )
             }
         }
