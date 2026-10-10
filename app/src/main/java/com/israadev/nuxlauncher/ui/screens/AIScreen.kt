@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -23,7 +24,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -176,7 +179,7 @@ fun AIScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF070A0F))
+            .background(Color.Transparent)
             .padding(8.dp)
     ) {
         Column(
@@ -186,12 +189,12 @@ fun AIScreen(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFF0B1018),
-                            Color(0xFF080C12)
+                            Color(0xCC111624),
+                            Color(0xE00C0F17)
                         )
                     )
                 )
-                .border(1.dp, Color(0x1F10B981), outerShape)
+                .border(1.dp, Color(0x33FFFFFF), outerShape)
                 .padding(10.dp)
         ) {
             // ==========================================
@@ -365,8 +368,8 @@ fun AIScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(pillShape)
-                    .background(Color(0xFF0F1521))
-                    .border(1.dp, Color(0x1F38BDF8), pillShape)
+                    .background(Color(0x800F1521))
+                    .border(1.dp, Color(0x3338BDF8), pillShape)
                     .padding(horizontal = 8.dp, vertical = 5.dp)
             ) {
                 Row(
@@ -495,8 +498,8 @@ fun AIScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .clip(cardShape)
-                    .background(Color(0xFF090D14))
-                    .border(1.dp, Color(0x1F22D3EE), cardShape)
+                    .background(Color(0x73090D14))
+                    .border(1.dp, Color(0x33FFFFFF), cardShape)
                     .padding(8.dp)
             ) {
                 if (chatMessages.isEmpty()) {
@@ -698,42 +701,46 @@ fun AIScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(34.dp)
                     .clip(pillShape)
-                    .background(Color(0xFF0F1521))
+                    .background(Color(0xD90F1521), pillShape)
                     .border(1.dp, Color(0x33FFFFFF), pillShape)
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                    .padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TextField(
-                    value = currentInputText,
-                    onValueChange = { currentInputText = it },
-                    placeholder = {
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (currentInputText.isEmpty()) {
                         Text(
                             text = "Tanyakan seputar mod, error log, renderer, atau masalah game...",
-                            fontSize = 9.sp,
-                            color = Color(0xFF64748B)
+                            fontSize = 8.5.sp,
+                            color = Color(0xFF64748B),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(0.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    maxLines = 3
-                )
+                    }
+                    BasicTextField(
+                        value = currentInputText,
+                        onValueChange = { currentInputText = it },
+                        textStyle = TextStyle(
+                            color = Color.White,
+                            fontSize = 8.5.sp,
+                            fontWeight = FontWeight.Medium
+                        ),
+                        cursorBrush = SolidColor(Color(0xFF10B981)),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
 
                 Spacer(modifier = Modifier.width(6.dp))
 
-                // Send Button
+                // Send Button (Compact)
                 Box(
                     modifier = Modifier
-                        .height(30.dp)
+                        .height(24.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(
                             if (isBusy || currentInputText.isBlank()) {
@@ -745,12 +752,12 @@ fun AIScreen(
                         .clickable(enabled = !isBusy && currentInputText.isNotBlank()) {
                             sendMessage(currentInputText)
                         }
-                        .padding(horizontal = 10.dp),
+                        .padding(horizontal = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isBusy) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(13.dp),
+                            modifier = Modifier.size(11.dp),
                             color = Color(0xFF38BDF8),
                             strokeWidth = 1.5.dp
                         )
@@ -759,7 +766,7 @@ fun AIScreen(
                             Text(
                                 text = "KIRIM",
                                 fontWeight = FontWeight.Black,
-                                fontSize = 8.5.sp,
+                                fontSize = 8.sp,
                                 color = if (currentInputText.isNotBlank()) Color.White else Color(0xFF64748B)
                             )
                             Spacer(modifier = Modifier.width(3.dp))
@@ -767,7 +774,7 @@ fun AIScreen(
                                 imageVector = Icons.Outlined.Send,
                                 contentDescription = "Kirim",
                                 tint = if (currentInputText.isNotBlank()) Color.White else Color(0xFF64748B),
-                                modifier = Modifier.size(11.dp)
+                                modifier = Modifier.size(9.dp)
                             )
                         }
                     }

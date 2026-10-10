@@ -282,7 +282,7 @@ object AuthService {
             AiQuotaInfo(
                 date = obj.get("date").asStringOrNull() ?: "",
                 usedCount = obj.get("usedCount").asIntOrDefault(0),
-                remainingQuota = obj.get("remainingQuota").asIntOrDefault(0),
+                remainingQuota = obj.get("remainingQuota").asIntOrDefault(4),
                 dailyLimit = obj.get("dailyLimit").asIntOrDefault(5),
                 isUnlimited = obj.get("isUnlimited").asBooleanOrDefault(false)
             )

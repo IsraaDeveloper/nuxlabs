@@ -217,13 +217,6 @@ fun NuxAboutDialog(
                                 fontSize = 12.sp,
                                 letterSpacing = 0.6.sp
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            NuxBadge(
-                                text = "v1.0.6",
-                                backgroundColor = NuxColors.ForestGreen.copy(alpha = 0.18f),
-                                textColor = NuxColors.MintGreen,
-                                borderColor = NuxColors.MintGreen.copy(alpha = 0.35f)
-                            )
                         }
                         Text(
                             text = "Atribusi hak cipta, kepatuhan GNU GPL-3.0, dan proyek hulu",
@@ -604,28 +597,6 @@ fun NuxAboutDialog(
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // ==========================================
-            // 4. FOOTER CLOSE BUTTON (Cyber Glass Pill)
-            // ==========================================
-            NuxButton(
-                onClick = onDismissRequest,
-                backgroundColor = Color(0xFF1A1D27),
-                borderColor = Color(0x33FFFFFF),
-                contentColor = Color.White,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(32.dp)
-            ) {
-                Text(
-                    text = "TUTUP",
-                    color = Color.White,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 10.sp,
-                    letterSpacing = 0.5.sp
-                )
-            }
         }
     }
 }

@@ -69,16 +69,21 @@ object AICrashQuotaManager {
         if (uid.isNotBlank()) {
             val result = AuthService.fetchAiQuota(uid)
             result.onSuccess { info ->
+                val safeUsed = info.usedCount.coerceAtLeast(0)
+                val safeRemaining = if (info.isUnlimited) -1 else {
+                    if (safeUsed == 0 && info.remainingQuota <= 0) DAILY_LIMIT
+                    else info.remainingQuota
+                }
                 prefs.edit()
                     .putString(KEY_DATE, info.date.ifBlank { today })
-                    .putInt(KEY_USED_COUNT, info.usedCount)
-                    .putInt(KEY_REMAINING_QUOTA, info.remainingQuota)
+                    .putInt(KEY_USED_COUNT, safeUsed)
+                    .putInt(KEY_REMAINING_QUOTA, safeRemaining)
                     .apply()
-                return@withContext info.remainingQuota
+                return@withContext safeRemaining
             }
         }
 
-        // Fallback jika belum login atau offline: evaluasi cache lokal berdasarkan jam 00:00 WIB
+        // Fallback jika belum login, offline, atau database belum tersinkron
         val savedDate = prefs.getString(KEY_DATE, "") ?: ""
         if (savedDate != today) {
             prefs.edit()
@@ -90,7 +95,13 @@ object AICrashQuotaManager {
         }
 
         val used = prefs.getInt(KEY_USED_COUNT, 0)
-        return@withContext (DAILY_LIMIT - used).coerceAtLeast(0)
+        if (used <= 0) {
+            prefs.edit().putInt(KEY_REMAINING_QUOTA, DAILY_LIMIT).apply()
+            return@withContext DAILY_LIMIT
+        }
+
+        val cached = prefs.getInt(KEY_REMAINING_QUOTA, -99)
+        return@withContext if (cached >= 0) cached else (DAILY_LIMIT - used).coerceAtLeast(0)
     }
 
     /**
@@ -120,16 +131,25 @@ object AICrashQuotaManager {
         val savedDate = prefs.getString(KEY_DATE, "") ?: ""
         val today = getTodayJakartaDate()
 
-        return if (savedDate == today) {
-            val cachedRem = prefs.getInt(KEY_REMAINING_QUOTA, -99)
-            if (cachedRem != -99) {
-                cachedRem
-            } else {
-                val used = prefs.getInt(KEY_USED_COUNT, 0)
-                (DAILY_LIMIT - used).coerceAtLeast(0)
-            }
+        if (savedDate != today) {
+            prefs.edit()
+                .putString(KEY_DATE, today)
+                .putInt(KEY_USED_COUNT, 0)
+                .putInt(KEY_REMAINING_QUOTA, DAILY_LIMIT)
+                .apply()
+            return DAILY_LIMIT
+        }
+
+        val used = prefs.getInt(KEY_USED_COUNT, 0)
+        if (used <= 0) {
+            return DAILY_LIMIT // Belum pernah digunakan hari ini, kuota pasti penuh
+        }
+
+        val cachedRem = prefs.getInt(KEY_REMAINING_QUOTA, -99)
+        return if (cachedRem >= 0) {
+            cachedRem
         } else {
-            DAILY_LIMIT
+            (DAILY_LIMIT - used).coerceAtLeast(0)
         }
     }
 
@@ -138,6 +158,7 @@ object AICrashQuotaManager {
      */
     fun hasQuota(context: Context, settings: LauncherSettings?): Boolean {
         if (isUsingCustomKey(settings) || isVipUser()) return true
+        if (getUsedCount(context) <= 0) return true
         return getRemainingQuota(context, settings) > 0
     }
 

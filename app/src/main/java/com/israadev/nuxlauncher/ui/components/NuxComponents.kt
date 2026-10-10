@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
@@ -43,7 +44,7 @@ fun NuxCard(
     borderColor: Color = NuxColors.CardBorder,
     shadowColor: Color = Color.Transparent,
     shadowOffset: Dp = 0.dp,
-    cornerRadius: Dp = (16.dp).resp(),
+    cornerRadius: Dp = (20.dp).resp(),
     borderWidth: Dp = NuxSizes.BorderWidth,
     fillMaxHeight: Boolean = false,
     content: @Composable BoxScope.() -> Unit
@@ -53,9 +54,9 @@ fun NuxCard(
 
     Box(
         modifier = cardModifier
+            .clip(shape)
             .background(backgroundColor, shape)
             .border(borderWidth, borderColor, shape)
-            .clip(shape)
     ) {
         content()
     }
@@ -73,7 +74,7 @@ fun NuxButton(
     borderColor: Color = NuxColors.CardBorder,
     enabled: Boolean = true,
     shadowOffset: Dp = 0.dp,
-    cornerRadius: Dp = (14.dp).resp(),
+    cornerRadius: Dp = (12.dp).resp(),
     contentPadding: PaddingValues = PaddingValues(horizontal = (12.dp).resp(), vertical = (4.dp).resp()),
     content: @Composable RowScope.() -> Unit
 ) {
@@ -228,6 +229,7 @@ fun NuxDialog(
 ) {
     val isTablet = LocalNuxScale.current.isTablet
     val defaultWidthFraction = if (isTablet) 0.82f else 0.96f
+    val dialogShape = RoundedCornerShape((24.dp).resp())
 
     Dialog(
         onDismissRequest = onDismissRequest,
@@ -239,7 +241,7 @@ fun NuxDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.75f))
+                .background(Color.Black.copy(alpha = 0.72f))
                 .padding(horizontal = (12.dp).resp(), vertical = (8.dp).resp()),
             contentAlignment = Alignment.Center
         ) {
@@ -248,13 +250,28 @@ fun NuxDialog(
             } else {
                 modifier.fillMaxWidth(defaultWidthFraction).wrapContentHeight()
             }
-            NuxCard(
-                modifier = dialogModifier,
-                backgroundColor = NuxColors.SurfaceElevated,
-                borderColor = Color(0x33FFFFFF),
-                borderWidth = 1.dp,
-                cornerRadius = (18.dp).resp(),
-                fillMaxHeight = fillMaxHeight
+            Box(
+                modifier = dialogModifier
+                    .clip(dialogShape)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0xF2151924),
+                                Color(0xFA0D0F17)
+                            )
+                        ),
+                        dialogShape
+                    )
+                    .border(
+                        1.2.dp,
+                        Brush.verticalGradient(
+                            listOf(
+                                Color(0x4DFFFFFF),
+                                Color(0x1AFFFFFF)
+                            )
+                        ),
+                        dialogShape
+                    )
             ) {
                 content()
             }

@@ -51,6 +51,7 @@ import com.israadev.nuxlauncher.ui.dialogs.NuxWardrobeDialog
 import com.israadev.nuxlauncher.ui.dialogs.NuxPremiumDialog
 import com.israadev.nuxlauncher.ui.theme.NuxColors
 import com.israadev.nuxlauncher.ui.theme.NuxSizes
+import com.israadev.nuxlauncher.ui.theme.resp
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -101,7 +102,7 @@ fun AccountsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(NuxColors.Background)
+            .background(Color.Transparent)
             .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
@@ -202,9 +203,9 @@ fun AccountsScreen(
                 modifier = Modifier
                     .weight(0.95f)
                     .fillMaxHeight(),
-                backgroundColor = NuxColors.SurfaceWhite,
-                borderColor = NuxColors.CardBorder,
-                cornerRadius = NuxSizes.CornerRadiusLarge
+                backgroundColor = Color(0x8C11151F),
+                borderColor = Color(0x33FFFFFF),
+                cornerRadius = (22.dp).resp()
             ) {
                 if (currentAccount != null) {
                     val acc = currentAccount!!
@@ -356,9 +357,9 @@ fun AccountsScreen(
                 modifier = Modifier
                     .weight(1.35f)
                     .fillMaxHeight(),
-                backgroundColor = NuxColors.SurfaceWhite,
-                borderColor = NuxColors.CardBorder,
-                cornerRadius = NuxSizes.CornerRadiusLarge
+                backgroundColor = Color(0x8C11151F),
+                borderColor = Color(0x33FFFFFF),
+                cornerRadius = (22.dp).resp()
             ) {
                 Column(
                     modifier = Modifier
@@ -425,12 +426,12 @@ fun AccountsScreen(
                                         .fillMaxWidth()
                                         .clip(itemShape)
                                         .background(
-                                            if (isCurrent) Color(0xFF10B981).copy(alpha = 0.12f) else Color(0xFF12141A),
+                                            if (isCurrent) Color(0xFF10B981).copy(alpha = 0.22f) else Color(0x73141822),
                                             itemShape
                                         )
                                         .border(
                                             width = 1.dp,
-                                            color = if (isCurrent) Color(0xFF10B981).copy(alpha = 0.5f) else Color(0x12FFFFFF),
+                                            color = if (isCurrent) Color(0xFF10B981).copy(alpha = 0.55f) else Color(0x26FFFFFF),
                                             shape = itemShape
                                         )
                                         .clickable {

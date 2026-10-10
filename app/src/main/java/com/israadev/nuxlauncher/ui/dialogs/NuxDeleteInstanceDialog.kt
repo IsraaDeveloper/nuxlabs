@@ -27,6 +27,7 @@ import com.israadev.nuxlauncher.ui.components.NuxButton
 import com.israadev.nuxlauncher.ui.components.NuxCard
 import com.israadev.nuxlauncher.ui.theme.LocalNuxScale
 import com.israadev.nuxlauncher.ui.theme.NuxColors
+import com.israadev.nuxlauncher.ui.theme.resp
 
 @Composable
 fun NuxDeleteInstanceDialog(
@@ -55,9 +56,9 @@ fun NuxDeleteInstanceDialog(
                     .fillMaxWidth(if (isTablet) 0.52f else 0.68f)
                     .widthIn(min = 340.dp, max = 460.dp)
                     .wrapContentHeight(),
-                backgroundColor = NuxColors.SurfaceElevated,
-                borderColor = Color(0x33FFFFFF),
-                cornerRadius = 18.dp,
+                backgroundColor = Color(0xF2151924),
+                borderColor = Color(0x38FFFFFF),
+                cornerRadius = (24.dp).resp(),
                 fillMaxHeight = false
             ) {
                 Column(

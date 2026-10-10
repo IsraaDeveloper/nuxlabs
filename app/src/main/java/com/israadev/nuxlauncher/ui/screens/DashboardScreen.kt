@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -224,6 +225,43 @@ fun DashboardScreen() {
                         .background(Color(0xFF09090B), mainCardShape)
                         .border(2.dp, Color(0xFF14171E), mainCardShape)
                 ) {
+                    val hasValidHeroVideo = launcherSettings.heroAnimationEnabled &&
+                            launcherSettings.heroAnimationVideoPath.isNotBlank() &&
+                            File(launcherSettings.heroAnimationVideoPath).exists()
+                    val isHomeTab = currentTab == "home"
+
+                    // --- SHARED VIDEO ANIMATION BACKGROUND FOR ALL TABS ---
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(if (!isHomeTab) Modifier.blur((18.dp).resp()) else Modifier)
+                    ) {
+                        if (hasValidHeroVideo) {
+                            HeroBannerVideoPlayer(
+                                videoPath = launcherSettings.heroAnimationVideoPath,
+                                rotationDegrees = launcherSettings.heroAnimationRotation,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Image(
+                                painter = painterResource(id = R.drawable.mc_hero_bg),
+                                contentDescription = "Minecraft Scenery",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                                alpha = if (isHomeTab) 0.45f else 0.25f
+                            )
+                        }
+                    }
+
+                    // Frosted dark overlay for non-home tabs (Accounts, Mods, AI, Settings)
+                    if (!isHomeTab) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0xD90A0D14))
+                        )
+                    }
+
                     if (currentTab == "accounts") {
                         AccountsScreen(
                             onNavigateBack = { currentTab = "home" },
@@ -255,26 +293,6 @@ fun DashboardScreen() {
                         Box(
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            // 1. Background Video Animation or Fallback Scenery
-                            val hasValidHeroVideo = launcherSettings.heroAnimationEnabled &&
-                                    launcherSettings.heroAnimationVideoPath.isNotBlank() &&
-                                    File(launcherSettings.heroAnimationVideoPath).exists()
-
-                            if (hasValidHeroVideo) {
-                                HeroBannerVideoPlayer(
-                                    videoPath = launcherSettings.heroAnimationVideoPath,
-                                    rotationDegrees = launcherSettings.heroAnimationRotation,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            } else {
-                                Image(
-                                    painter = painterResource(id = R.drawable.mc_hero_bg),
-                                    contentDescription = "Minecraft Scenery",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize(),
-                                    alpha = 0.45f
-                                )
-                            }
 
                             // 2. Gradients for Legibility
                             Box(
